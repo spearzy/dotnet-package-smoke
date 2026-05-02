@@ -6,7 +6,36 @@ Test your NuGet packages the way consumers install them.
 
 This project is currently at the first learning milestone: a working TypeScript GitHub Action skeleton with input parsing, unit tests, bundling, and CI.
 
+## Why this exists
+
+Normal source-based tests are valuable, but they do not prove that a packed `.nupkg` works when installed through `PackageReference`.
+
 This action is intended to catch package-consumption problems before release, including restore failures, missing dependencies, bad package layout, and packages that work through `ProjectReference` but fail for real consumers.
+
+## Current status
+
+Implemented:
+
+- TypeScript action entry point
+- `action.yml`
+- `package-projects` input parsing
+- `generated-consumers` boolean input parsing
+- `packages-packed` output placeholder
+- Vitest unit tests
+- `@vercel/ncc` bundling to `dist/index.js`
+- CI for build, test, package, bundle freshness, and production audit
+
+Not implemented yet:
+
+- resolving project globs
+- running `dotnet restore`
+- running `dotnet build`
+- running `dotnet pack`
+- finding `.nupkg` files
+- extracting package ID/version
+- creating generated consumer projects
+- installing produced packages into generated consumers
+- GitHub job summary output
 
 ## Usage
 
@@ -108,3 +137,5 @@ Next small milestones:
 6. Create generated consumer projects in a temporary workspace.
 7. Install, restore, and build generated consumers.
 8. Write a useful GitHub job summary.
+
+The first real MVP is complete when the action can be run with only `package-projects` and prove that the packed packages install, restore, and build in clean generated consumer projects.
