@@ -1,0 +1,21 @@
+name: .NET Package Smoke Tests
+description: Test your NuGet packages the way consumers install them.
+author: dotnet-package-smoke contributors
+
+inputs:
+  package-projects:
+    description: Projects to pack. This will support multiline values and globs later on
+    required: true
+
+  generated-consumers:
+    description: Create generated temporary consumer projects.
+    required: false
+    default: "true"
+
+outputs:
+  packages-packed:
+    description: Number of packages packed.
+
+runs:
+  using: node24
+  main: dist/index.js

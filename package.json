@@ -1,0 +1,27 @@
+{
+  "name": "dotnet-package-smoke",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "all": "npm run build && npm run test && npm run package"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@actions/core": "^1.11.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@vercel/ncc": "^0.38.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "undici": "6.24.0"
+  }
+}
