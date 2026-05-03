@@ -108,7 +108,9 @@ async function main(): Promise<void> {
     }
 
     for (const packageFile of packages) {
-        core.info(`Package created: ${packageFile.path}`);
+        core.info(
+            `Package created: ${packageFile.id} ${packageFile.version} (${packageFile.path})`,
+        );
     }
 
     core.setOutput("packages-packed", packages.length.toString());

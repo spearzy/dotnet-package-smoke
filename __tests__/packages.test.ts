@@ -1,8 +1,34 @@
 import { describe, expect, it } from "vitest";
+import AdmZip from "adm-zip";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { findPackageFiles } from "../src/packages";
+
+function writePackage(
+    packagePath: string,
+    id: string,
+    version: string,
+): void {
+    const zip = new AdmZip();
+
+    zip.addFile(
+        `${id}.nuspec`,
+        Buffer.from(
+            `
+      <package>
+        <metadata>
+          <id>${id}</id>
+          <version>${version}</version>
+        </metadata>
+      </package>
+      `,
+            "utf8",
+        ),
+    );
+
+    zip.writeZip(packagePath);
+}
 
 describe("findPackageFiles", () => {
     it("finds nupkg files and ignores symbol packages", async () => {
@@ -10,8 +36,18 @@ describe("findPackageFiles", () => {
             path.join(os.tmpdir(), "dotnet-package-smoke-"),
         );
 
-        await fs.writeFile(path.join(directory, "MyLibrary.1.0.0.nupkg"), "");
-        await fs.writeFile(path.join(directory, "MyLibrary.1.0.0.snupkg"), "");
+        writePackage(
+            path.join(directory, "MyLibrary.1.0.0.nupkg"),
+            "MyLibrary",
+            "1.0.0",
+        );
+
+        writePackage(
+            path.join(directory, "MyLibrary.1.0.0.snupkg"),
+            "MyLibrary",
+            "1.0.0",
+        );
+
         await fs.writeFile(path.join(directory, "notes.txt"), "");
 
         const packages = await findPackageFiles(directory);
@@ -20,6 +56,8 @@ describe("findPackageFiles", () => {
             {
                 name: "MyLibrary.1.0.0.nupkg",
                 path: path.join(directory, "MyLibrary.1.0.0.nupkg"),
+                id: "MyLibrary",
+                version: "1.0.0",
             },
         ]);
     });
@@ -29,8 +67,8 @@ describe("findPackageFiles", () => {
             path.join(os.tmpdir(), "dotnet-package-smoke-"),
         );
 
-        await fs.writeFile(path.join(directory, "B.1.0.0.nupkg"), "");
-        await fs.writeFile(path.join(directory, "A.1.0.0.nupkg"), "");
+        writePackage(path.join(directory, "B.1.0.0.nupkg"), "B", "1.0.0");
+        writePackage(path.join(directory, "A.1.0.0.nupkg"), "A", "1.0.0");
 
         const packages = await findPackageFiles(directory);
 
