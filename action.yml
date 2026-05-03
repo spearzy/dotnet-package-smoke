@@ -2,6 +2,10 @@ name: .NET Package Smoke Tests
 description: Test your NuGet packages the way consumers install them.
 author: dotnet-package-smoke contributors
 
+branding:
+  icon: package
+  color: blue
+  
 inputs:
   package-projects:
     description: Projects to pack. Supports multiline values, comma-separated values, and globs.
