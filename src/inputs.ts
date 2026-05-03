@@ -14,6 +14,7 @@ export interface ActionInputs {
     artifactsDirectory: string;
     restoreBeforePack: boolean;
     buildBeforePack: boolean;
+    packArguments: string[];
     localFeedDirectory: string;
 }
 
@@ -46,6 +47,74 @@ export function parseBooleanInput(
     throw new Error(
         `Input '${inputName}' must be a boolean value, but received '${value}'.`,
     );
+}
+
+export function parseArgumentInput(value: string, inputName: string): string[] {
+    const args: string[] = [];
+    let current = "";
+    let quote: "'" | "\"" | null = null;
+    let escaping = false;
+
+    for (const character of value.trim()) {
+        // A backslash means "take the next character literally". This lets
+        // users include quotes inside quoted values, for example \"text\".
+        if (escaping) {
+            current += character;
+            escaping = false;
+            continue;
+        }
+
+        if (character === "\\") {
+            escaping = true;
+            continue;
+        }
+
+        // While inside quotes, whitespace is just part of the argument. The
+        // matching quote ends the quoted section and is not included.
+        if (quote !== null) {
+            if (character === quote) {
+                quote = null;
+            } else {
+                current += character;
+            }
+            continue;
+        }
+
+        // Opening quotes are used for grouping only. We strip the quote
+        // characters before passing the final argument array to dotnet.
+        if (character === "'" || character === "\"") {
+            quote = character;
+            continue;
+        }
+
+        // Outside quotes, whitespace ends the current argument. Multiple spaces
+        // are harmless because we only push when there is something buffered.
+        if (/\s/.test(character)) {
+            if (current.length > 0) {
+                args.push(current);
+                current = "";
+            }
+            continue;
+        }
+
+        current += character;
+    }
+
+    // These checks catch typos early so users get a clear input error instead
+    // of a confusing dotnet pack failure.
+    if (escaping) {
+        throw new Error(`Input '${inputName}' cannot end with an escape character.`);
+    }
+
+    if (quote !== null) {
+        throw new Error(`Input '${inputName}' contains an unterminated quoted value.`);
+    }
+
+    if (current.length > 0) {
+        args.push(current);
+    }
+
+    return args;
 }
 
 export function parseConsumerProjectType(value: string): ConsumerProjectType {
@@ -101,6 +170,10 @@ export function getInputs(): ActionInputs {
             core.getInput("build-before-pack"),
             "build-before-pack",
             true,
-        )
+        ),
+        packArguments: parseArgumentInput(
+            core.getInput("pack-arguments"),
+            "pack-arguments",
+        ),
     };
 }

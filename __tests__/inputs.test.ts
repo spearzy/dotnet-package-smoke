@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseBooleanInput, parseConsumerProjectType, parseListInput } from "../src/inputs";
+import {
+    parseArgumentInput,
+    parseBooleanInput,
+    parseConsumerProjectType,
+    parseListInput,
+} from "../src/inputs";
 
 describe("parseListInput", () => {
     it("parses a single value", () => {
@@ -68,6 +73,63 @@ describe("parseBooleanInput", () => {
         expect(() =>
             parseBooleanInput("maybe", "generated-consumers", true),
         ).toThrow("Input 'generated-consumers' must be a boolean value");
+    });
+});
+
+describe("parseArgumentInput", () => {
+    it("uses an empty array for an empty value", () => {
+        expect(parseArgumentInput("", "pack-arguments")).toEqual([]);
+    });
+
+    it("parses simple whitespace-separated arguments", () => {
+        expect(
+            parseArgumentInput(
+                "--include-symbols -p:ContinuousIntegrationBuild=true",
+                "pack-arguments",
+            ),
+        ).toEqual([
+            "--include-symbols",
+            "-p:ContinuousIntegrationBuild=true",
+        ]);
+    });
+
+    it("keeps quoted values as one argument", () => {
+        expect(
+            parseArgumentInput(
+                '--include-symbols -p:PackageReleaseNotes="Fixed restore issue"',
+                "pack-arguments",
+            ),
+        ).toEqual([
+            "--include-symbols",
+            "-p:PackageReleaseNotes=Fixed restore issue",
+        ]);
+    });
+
+    it("supports single quoted values", () => {
+        expect(
+            parseArgumentInput(
+                "-p:Description='My Library package'",
+                "pack-arguments",
+            ),
+        ).toEqual(["-p:Description=My Library package"]);
+    });
+
+    it("supports escaped characters", () => {
+        expect(
+            parseArgumentInput(
+                '--property:PackageReleaseNotes="Contains \\"quoted\\" text"',
+                "pack-arguments",
+            ),
+        ).toEqual(["--property:PackageReleaseNotes=Contains \"quoted\" text"]);
+    });
+
+    it("rejects unterminated quoted values", () => {
+        expect(() =>
+            parseArgumentInput(
+                '-p:PackageReleaseNotes="Missing end quote',
+                "pack-arguments",
+            ),
+        ).toThrow("Input 'pack-arguments' contains an unterminated quoted value.");
     });
 });
 

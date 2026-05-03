@@ -82,7 +82,9 @@ export function buildPackArgs(
     configuration: string,
     outputDirectory: string,
     alreadyRestored: boolean,
-    alreadyBuilt: boolean): string[] {
+    alreadyBuilt: boolean,
+    extraArgs: string[] = [],
+): string[] {
     const args = ["pack", project, "-c", configuration, "--output", outputDirectory];
 
     if (alreadyBuilt) {
@@ -90,6 +92,8 @@ export function buildPackArgs(
     } else if (alreadyRestored) {
         args.push("--no-restore");
     }
+
+    args.push(...extraArgs);
 
     return args;
 }

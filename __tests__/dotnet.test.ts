@@ -118,6 +118,32 @@ describe("dotnet argument builders", () => {
         ]);
     });
 
+    it("appends extra pack args", () => {
+        expect(
+            buildPackArgs(
+                "src/MyLibrary/MyLibrary.csproj",
+                "Release",
+                "/tmp/artifacts",
+                true,
+                true,
+                [
+                    "--include-symbols",
+                    "-p:PackageReleaseNotes=Fixed restore issue",
+                ],
+            ),
+        ).toEqual([
+            "pack",
+            "src/MyLibrary/MyLibrary.csproj",
+            "-c",
+            "Release",
+            "--output",
+            "/tmp/artifacts",
+            "--no-build",
+            "--include-symbols",
+            "-p:PackageReleaseNotes=Fixed restore issue",
+        ]);
+    });
+
     it("builds generated consumer project args", () => {
         expect(
             buildNewConsumerArgs(

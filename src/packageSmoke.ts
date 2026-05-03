@@ -74,6 +74,7 @@ async function packProject(
             artifactsDirectory,
             inputs.restoreBeforePack,
             inputs.buildBeforePack,
+            inputs.packArguments,
         ),
         inputs.workingDirectory,
         `dotnet pack failed for ${project}.`,

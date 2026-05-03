@@ -40437,7 +40437,7 @@ function buildTestArgs(project, configuration, noRestore) {
     }
     return args;
 }
-function buildPackArgs(project, configuration, outputDirectory, alreadyRestored, alreadyBuilt) {
+function buildPackArgs(project, configuration, outputDirectory, alreadyRestored, alreadyBuilt, extraArgs = []) {
     const args = ["pack", project, "-c", configuration, "--output", outputDirectory];
     if (alreadyBuilt) {
         args.push("--no-build");
@@ -40445,6 +40445,7 @@ function buildPackArgs(project, configuration, outputDirectory, alreadyRestored,
     else if (alreadyRestored) {
         args.push("--no-restore");
     }
+    args.push(...extraArgs);
     return args;
 }
 function buildNewConsumerArgs(projectType, projectName, outputDirectory, targetFramework) {
@@ -40853,6 +40854,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseListInput = parseListInput;
 exports.parseBooleanInput = parseBooleanInput;
+exports.parseArgumentInput = parseArgumentInput;
 exports.parseConsumerProjectType = parseConsumerProjectType;
 exports.getInputs = getInputs;
 const core = __importStar(__nccwpck_require__(7484));
@@ -40875,6 +40877,64 @@ function parseBooleanInput(value, inputName, defaultValue) {
         return false;
     }
     throw new Error(`Input '${inputName}' must be a boolean value, but received '${value}'.`);
+}
+function parseArgumentInput(value, inputName) {
+    const args = [];
+    let current = "";
+    let quote = null;
+    let escaping = false;
+    for (const character of value.trim()) {
+        // A backslash means "take the next character literally". This lets
+        // users include quotes inside quoted values, for example \"text\".
+        if (escaping) {
+            current += character;
+            escaping = false;
+            continue;
+        }
+        if (character === "\\") {
+            escaping = true;
+            continue;
+        }
+        // While inside quotes, whitespace is just part of the argument. The
+        // matching quote ends the quoted section and is not included.
+        if (quote !== null) {
+            if (character === quote) {
+                quote = null;
+            }
+            else {
+                current += character;
+            }
+            continue;
+        }
+        // Opening quotes are used for grouping only. We strip the quote
+        // characters before passing the final argument array to dotnet.
+        if (character === "'" || character === "\"") {
+            quote = character;
+            continue;
+        }
+        // Outside quotes, whitespace ends the current argument. Multiple spaces
+        // are harmless because we only push when there is something buffered.
+        if (/\s/.test(character)) {
+            if (current.length > 0) {
+                args.push(current);
+                current = "";
+            }
+            continue;
+        }
+        current += character;
+    }
+    // These checks catch typos early so users get a clear input error instead
+    // of a confusing dotnet pack failure.
+    if (escaping) {
+        throw new Error(`Input '${inputName}' cannot end with an escape character.`);
+    }
+    if (quote !== null) {
+        throw new Error(`Input '${inputName}' contains an unterminated quoted value.`);
+    }
+    if (current.length > 0) {
+        args.push(current);
+    }
+    return args;
 }
 function parseConsumerProjectType(value) {
     const normalized = value.trim().toLowerCase();
@@ -40908,7 +40968,8 @@ function getInputs() {
         artifactsDirectory: core.getInput("artifacts-directory") || ".dotnet-package-smoke/artifacts",
         localFeedDirectory: core.getInput("local-feed-directory") || ".dotnet-package-smoke/feed",
         restoreBeforePack: parseBooleanInput(core.getInput("restore-before-pack"), "restore-before-pack", true),
-        buildBeforePack: parseBooleanInput(core.getInput("build-before-pack"), "build-before-pack", true)
+        buildBeforePack: parseBooleanInput(core.getInput("build-before-pack"), "build-before-pack", true),
+        packArguments: parseArgumentInput(core.getInput("pack-arguments"), "pack-arguments"),
     };
 }
 
@@ -41132,7 +41193,7 @@ async function packProject(project, inputs, artifactsDirectory, logger) {
     if (inputs.buildBeforePack) {
         await runRequiredDotnetCommand((0, dotnet_1.buildBuildArgs)(project, inputs.configuration, inputs.restoreBeforePack), inputs.workingDirectory, `dotnet build failed for ${project}.`);
     }
-    await runRequiredDotnetCommand((0, dotnet_1.buildPackArgs)(project, inputs.configuration, artifactsDirectory, inputs.restoreBeforePack, inputs.buildBeforePack), inputs.workingDirectory, `dotnet pack failed for ${project}.`);
+    await runRequiredDotnetCommand((0, dotnet_1.buildPackArgs)(project, inputs.configuration, artifactsDirectory, inputs.restoreBeforePack, inputs.buildBeforePack, inputs.packArguments), inputs.workingDirectory, `dotnet pack failed for ${project}.`);
 }
 async function runPackageSmoke(inputs, logger) {
     logger.info("dotnet-package-smoke is running.");

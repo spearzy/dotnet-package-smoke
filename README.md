@@ -64,6 +64,21 @@ With optional smoke projects:
 
 Smoke projects should already contain the `PackageReference` entries they need. The action restores and tests them against the temporary local feed; it does not edit those project files.
 
+With extra `dotnet pack` arguments:
+
+```yaml
+- uses: spearzy/dotnet-package-smoke@v1
+  with:
+    package-projects: |
+      src/MyLibrary/MyLibrary.csproj
+    pack-arguments: >-
+      --include-symbols
+      -p:ContinuousIntegrationBuild=true
+      -p:PackageReleaseNotes="Package smoke validation"
+```
+
+`pack-arguments` supports quoted values and is passed to `dotnet pack` as arguments, not through a shell.
+
 ## Inputs
 
 | Input | Required | Default | Description |
@@ -79,6 +94,7 @@ Smoke projects should already contain the `PackageReference` entries they need. 
 | `local-feed-directory` | No | `.dotnet-package-smoke/feed` | Directory used as the temporary local NuGet feed. |
 | `restore-before-pack` | No | `true` | Run `dotnet restore` before packing. |
 | `build-before-pack` | No | `true` | Run `dotnet build` before packing. |
+| `pack-arguments` | No | | Additional arguments passed to `dotnet pack`. Supports quoted values. |
 
 ## Outputs
 
@@ -144,7 +160,6 @@ The CI workflow checks that `dist/` is current after `npm run package`.
 
 Next milestones:
 
-1. Add `pack-arguments`.
-2. Add cleanup and retain-on-failure behaviour.
-3. Expand README examples.
-4. Prepare marketplace documentation.
+1. Add cleanup and retain-on-failure behaviour.
+2. Expand README examples.
+3. Prepare marketplace documentation.

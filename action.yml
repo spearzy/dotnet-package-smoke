@@ -49,6 +49,10 @@ inputs:
     description: Run dotnet build before packing.
     required: false
     default: "true"
+
+  pack-arguments:
+    description: Additional arguments passed to dotnet pack. Supports quoted values.
+    required: false
   
   local-feed-directory:
     description: Directory used as the temporary local NuGet feed.
