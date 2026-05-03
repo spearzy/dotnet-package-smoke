@@ -40387,6 +40387,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runDotnet = runDotnet;
 exports.buildRestoreArgs = buildRestoreArgs;
 exports.buildBuildArgs = buildBuildArgs;
+exports.buildTestArgs = buildTestArgs;
 exports.buildPackArgs = buildPackArgs;
 exports.buildNewConsumerArgs = buildNewConsumerArgs;
 exports.buildAddPackageArgs = buildAddPackageArgs;
@@ -40424,6 +40425,13 @@ function buildRestoreArgs(project, configFile, ignoreFailedSources = false) {
 }
 function buildBuildArgs(project, configuration, noRestore) {
     const args = ["build", project, "-c", configuration];
+    if (noRestore) {
+        args.push("--no-restore");
+    }
+    return args;
+}
+function buildTestArgs(project, configuration, noRestore) {
+    const args = ["test", project, "-c", configuration];
     if (noRestore) {
         args.push("--no-restore");
     }
@@ -40731,6 +40739,9 @@ const summary_1 = __nccwpck_require__(8855);
 function generatedConsumerFailed(consumer) {
     return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
 }
+function smokeProjectFailed(smokeProject) {
+    return !smokeProject.restoreSucceeded || !smokeProject.testSucceeded;
+}
 function generatedConsumerFailureMessage(consumers) {
     if (consumers.length === 1) {
         const consumer = consumers[0];
@@ -40747,20 +40758,47 @@ function generatedConsumerFailureMessage(consumers) {
         .join(", ");
     return `${consumers.length} generated consumer checks failed (${stageSummary}).`;
 }
+function smokeProjectFailureMessage(smokeProjects) {
+    if (smokeProjects.length === 1) {
+        const smokeProject = smokeProjects[0];
+        const stage = smokeProject.failureStage ?? "unknown";
+        return `Smoke project check failed for ${smokeProject.projectPath} during ${stage}.`;
+    }
+    const failuresByStage = smokeProjects.reduce((counts, smokeProject) => {
+        const stage = smokeProject.failureStage ?? "unknown";
+        counts[stage] = (counts[stage] ?? 0) + 1;
+        return counts;
+    }, {});
+    const stageSummary = Object.entries(failuresByStage)
+        .map(([stage, count]) => `${stage}: ${count}`)
+        .join(", ");
+    return `${smokeProjects.length} smoke project checks failed (${stageSummary}).`;
+}
 async function main() {
     const inputs = (0, inputs_1.getInputs)();
     const result = await (0, packageSmoke_1.runPackageSmoke)(inputs, {
         info: (message) => core.info(message),
     });
     const failedGeneratedConsumers = result.generatedConsumers.filter(generatedConsumerFailed);
+    const failedSmokeProjects = result.smokeProjects.filter(smokeProjectFailed);
     core.setOutput("packages-packed", result.packages.length.toString());
     core.setOutput("local-feed-directory", result.localFeedDirectory);
     core.setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
     core.setOutput("generated-consumers-passed", (result.generatedConsumers.length - failedGeneratedConsumers.length).toString());
     core.setOutput("generated-consumers-failed", failedGeneratedConsumers.length.toString());
+    core.setOutput("smoke-projects-tested", result.smokeProjects.length.toString());
+    core.setOutput("smoke-projects-passed", (result.smokeProjects.length - failedSmokeProjects.length).toString());
+    core.setOutput("smoke-projects-failed", failedSmokeProjects.length.toString());
     await core.summary.addRaw((0, summary_1.createMarkdownSummary)(result)).write();
+    const failureMessages = [];
     if (failedGeneratedConsumers.length > 0) {
-        throw new Error(generatedConsumerFailureMessage(failedGeneratedConsumers));
+        failureMessages.push(generatedConsumerFailureMessage(failedGeneratedConsumers));
+    }
+    if (failedSmokeProjects.length > 0) {
+        failureMessages.push(smokeProjectFailureMessage(failedSmokeProjects));
+    }
+    if (failureMessages.length > 0) {
+        throw new Error(failureMessages.join(" "));
     }
 }
 main().catch((error) => {
@@ -40852,14 +40890,19 @@ function getInputs() {
     const packageProjects = parseListInput(core.getInput("package-projects", { required: true }));
     const workingDirectoryInput = core.getInput("working-directory") || ".";
     const generatedConsumers = parseBooleanInput(core.getInput("generated-consumers"), "generated-consumers", true);
+    const smokeProjects = parseListInput(core.getInput("smoke-projects"));
     if (packageProjects.length === 0) {
         throw new Error("Input 'package-projects' must include at least one project.");
+    }
+    if (!generatedConsumers && smokeProjects.length === 0) {
+        throw new Error("At least one validation mode must be enabled: generated-consumers must be true or smoke-projects must include at least one project.");
     }
     return {
         packageProjects,
         generatedConsumers,
         consumerTargetFrameworks: parseListInput(core.getInput("consumer-target-frameworks") || "net8.0"),
         consumerProjectType: parseConsumerProjectType(core.getInput("consumer-project-type")),
+        smokeProjects,
         workingDirectory: node_path_1.default.resolve(workingDirectoryInput),
         configuration: core.getInput("configuration") || "Release",
         artifactsDirectory: core.getInput("artifacts-directory") || ".dotnet-package-smoke/artifacts",
@@ -41069,6 +41112,7 @@ const generatedConsumers_1 = __nccwpck_require__(81);
 const glob_1 = __nccwpck_require__(5601);
 const localFeed_1 = __nccwpck_require__(608);
 const packages_1 = __nccwpck_require__(1282);
+const smokeRunner_1 = __nccwpck_require__(7336);
 function resolveOutputDirectory(workingDirectory, outputDirectory) {
     return path.isAbsolute(outputDirectory)
         ? outputDirectory
@@ -41098,6 +41142,9 @@ async function runPackageSmoke(inputs, logger) {
     logger.info(`Restore before pack: ${inputs.restoreBeforePack}`);
     logger.info(`Build before pack: ${inputs.buildBeforePack}`);
     const packageProjects = await (0, glob_1.resolveProjectGlobs)(inputs.packageProjects, inputs.workingDirectory, "package-projects");
+    const smokeProjectPaths = inputs.smokeProjects.length > 0
+        ? await (0, glob_1.resolveProjectGlobs)(inputs.smokeProjects, inputs.workingDirectory, "smoke-projects")
+        : [];
     const artifactsDirectory = resolveOutputDirectory(inputs.workingDirectory, inputs.artifactsDirectory);
     const localFeedDirectory = resolveOutputDirectory(inputs.workingDirectory, inputs.localFeedDirectory);
     await (0, packages_1.cleanPackageFiles)(artifactsDirectory);
@@ -41117,10 +41164,14 @@ async function runPackageSmoke(inputs, logger) {
     const generatedConsumers = inputs.generatedConsumers
         ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, inputs.configuration, localFeedDirectory, packages, logger)
         : [];
+    const smokeProjects = smokeProjectPaths.length > 0
+        ? await (0, smokeRunner_1.runSmokeProjects)(smokeProjectPaths, inputs.workingDirectory, inputs.configuration, localFeedDirectory, logger)
+        : [];
     return {
         packages,
         packageProjects,
         generatedConsumers,
+        smokeProjects,
         artifactsDirectory,
         localFeedDirectory,
     };
@@ -41202,6 +41253,119 @@ async function findPackageFiles(artifactsDirectory) {
 
 /***/ }),
 
+/***/ 7336:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runSmokeProjects = runSmokeProjects;
+const fs = __importStar(__nccwpck_require__(1455));
+const os = __importStar(__nccwpck_require__(8161));
+const path = __importStar(__nccwpck_require__(6760));
+const dotnet_1 = __nccwpck_require__(2797);
+const nugetConfig_1 = __nccwpck_require__(9254);
+function commandOutput(result) {
+    return `${result.stdout}\n${result.stderr}`.trim();
+}
+function outputPathArgs(workspaceDirectory, projectIndex) {
+    const projectWorkspace = path.join(workspaceDirectory, `smoke-${projectIndex}`);
+    return [
+        `-p:BaseOutputPath=${path.join(projectWorkspace, "bin")}${path.sep}`,
+        `-p:BaseIntermediateOutputPath=${path.join(projectWorkspace, "obj")}${path.sep}`,
+    ];
+}
+async function runSmokeProject(projectPath, projectIndex, workingDirectory, configuration, nugetConfigPath, workspaceDirectory, logger) {
+    const outputArgs = outputPathArgs(workspaceDirectory, projectIndex);
+    logger.info(`Restoring smoke project: ${projectPath}`);
+    const restore = await (0, dotnet_1.runDotnet)([
+        ...(0, dotnet_1.buildRestoreArgs)(projectPath, nugetConfigPath, true),
+        ...outputArgs,
+    ], workingDirectory);
+    if (restore.exitCode !== 0) {
+        return {
+            projectPath,
+            restoreSucceeded: false,
+            testSucceeded: false,
+            failureStage: "restore",
+            failureOutput: commandOutput(restore),
+        };
+    }
+    logger.info(`Testing smoke project: ${projectPath}`);
+    const test = await (0, dotnet_1.runDotnet)([
+        ...(0, dotnet_1.buildTestArgs)(projectPath, configuration, true),
+        ...outputArgs,
+    ], workingDirectory);
+    if (test.exitCode !== 0) {
+        return {
+            projectPath,
+            restoreSucceeded: true,
+            testSucceeded: false,
+            failureStage: "test",
+            failureOutput: commandOutput(test),
+        };
+    }
+    return {
+        projectPath,
+        restoreSucceeded: true,
+        testSucceeded: true,
+        failureStage: null,
+        failureOutput: "",
+    };
+}
+async function runSmokeProjects(smokeProjects, workingDirectory, configuration, localFeedDirectory, logger) {
+    const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-projects-"));
+    const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
+    const globalPackagesFolder = path.join(workspaceDirectory, "packages");
+    try {
+        await fs.writeFile(nugetConfigPath, (0, nugetConfig_1.createNuGetConfig)(localFeedDirectory, globalPackagesFolder), "utf8");
+        const results = [];
+        for (const [index, smokeProject] of smokeProjects.entries()) {
+            results.push(await runSmokeProject(smokeProject, index, workingDirectory, configuration, nugetConfigPath, workspaceDirectory, logger));
+        }
+        return results;
+    }
+    finally {
+        await fs.rm(workspaceDirectory, { recursive: true, force: true });
+    }
+}
+
+
+/***/ }),
+
 /***/ 8855:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -41238,19 +41402,39 @@ function createMarkdownSummary(result) {
             lines.push(`| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${icon(consumer.installSucceeded)} | ${icon(consumer.restoreSucceeded)} | ${icon(consumer.buildSucceeded)} | ${failureStage(consumer.failureStage)} |`);
         }
     }
+    lines.push("", "## Smoke Projects", "");
+    if (result.smokeProjects.length === 0) {
+        lines.push("Smoke project checks were skipped.");
+    }
+    else {
+        lines.push("| Project | Restore | Test | Failed Stage |");
+        lines.push("| --- | --- | --- | --- |");
+        for (const smokeProject of result.smokeProjects) {
+            lines.push(`| ${tableValue(smokeProject.projectPath)} | ${icon(smokeProject.restoreSucceeded)} | ${icon(smokeProject.testSucceeded)} | ${failureStage(smokeProject.failureStage)} |`);
+        }
+    }
     lines.push("", "## Paths", "");
     lines.push(`- Local feed: ${result.localFeedDirectory}`);
     lines.push(`- Artifacts: ${result.artifactsDirectory}`);
     const failedConsumers = result.generatedConsumers.filter((consumer) => !consumer.installSucceeded ||
         !consumer.restoreSucceeded ||
         !consumer.buildSucceeded);
-    if (failedConsumers.length > 0) {
+    const failedSmokeProjects = result.smokeProjects.filter((smokeProject) => !smokeProject.restoreSucceeded ||
+        !smokeProject.testSucceeded);
+    if (failedConsumers.length > 0 || failedSmokeProjects.length > 0) {
         lines.push("", "## Failure Details", "");
         for (const consumer of failedConsumers) {
             lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
             lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
             lines.push("```text");
             lines.push(consumer.failureOutput);
+            lines.push("```", "");
+        }
+        for (const smokeProject of failedSmokeProjects) {
+            lines.push(`### Smoke project ${smokeProject.projectPath}`, "");
+            lines.push(`Failed stage: ${failureStage(smokeProject.failureStage)}`, "");
+            lines.push("```text");
+            lines.push(smokeProject.failureOutput);
             lines.push("```", "");
         }
     }

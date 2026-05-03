@@ -11,11 +11,13 @@ import { ActionInputs } from "./inputs";
 import { Logger } from "./logger";
 import { cleanLocalFeed, copyPackagesToLocalFeed } from "./localFeed";
 import { cleanPackageFiles, findPackageFiles, PackageFile } from "./packages";
+import { runSmokeProjects, SmokeProjectResult } from "./smokeRunner";
 
 export interface PackageSmokeResult {
     packages: PackageFile[];
     packageProjects: string[];
     generatedConsumers: GeneratedConsumerResult[];
+    smokeProjects: SmokeProjectResult[];
     artifactsDirectory: string;
     localFeedDirectory: string;
 }
@@ -95,6 +97,14 @@ export async function runPackageSmoke(
         "package-projects",
     );
 
+    const smokeProjectPaths = inputs.smokeProjects.length > 0
+        ? await resolveProjectGlobs(
+            inputs.smokeProjects,
+            inputs.workingDirectory,
+            "smoke-projects",
+        )
+        : [];
+
     const artifactsDirectory = resolveOutputDirectory(
         inputs.workingDirectory,
         inputs.artifactsDirectory,
@@ -140,10 +150,21 @@ export async function runPackageSmoke(
         )
         : [];
 
+    const smokeProjects = smokeProjectPaths.length > 0
+        ? await runSmokeProjects(
+            smokeProjectPaths,
+            inputs.workingDirectory,
+            inputs.configuration,
+            localFeedDirectory,
+            logger,
+        )
+        : [];
+
     return {
         packages,
         packageProjects,
         generatedConsumers,
+        smokeProjects,
         artifactsDirectory,
         localFeedDirectory,
     };

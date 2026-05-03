@@ -45,12 +45,16 @@ jobs:
         run: git diff --exit-code -- dist
 
       - name: Create package fixture
-        run: dotnet new classlib --framework net8.0 --name MyLibrary --output .tmp/ci-fixture/MyLibrary
+        run: |
+          dotnet new classlib --framework net8.0 --name MyLibrary --output .tmp/ci-fixture/MyLibrary
+          dotnet new xunit --framework net8.0 --name MyLibrary.SmokeTests --output .tmp/ci-fixture/MyLibrary.SmokeTests --no-restore
+          dotnet add .tmp/ci-fixture/MyLibrary.SmokeTests/MyLibrary.SmokeTests.csproj package MyLibrary --version 1.0.0 --no-restore
 
       - name: Smoke test local action
         uses: ./
         with:
           package-projects: .tmp/ci-fixture/MyLibrary/MyLibrary.csproj
+          smoke-projects: .tmp/ci-fixture/MyLibrary.SmokeTests/MyLibrary.SmokeTests.csproj
           artifacts-directory: .tmp/artifacts
           local-feed-directory: .tmp/feed
 

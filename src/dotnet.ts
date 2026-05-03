@@ -64,6 +64,19 @@ export function buildBuildArgs(
     return args;
 }
 
+export function buildTestArgs(
+    project: string,
+    configuration: string,
+    noRestore: boolean): string[] {
+    const args = ["test", project, "-c", configuration];
+
+    if (noRestore) {
+        args.push("--no-restore");
+    }
+
+    return args;
+}
+
 export function buildPackArgs(
     project: string,
     configuration: string,

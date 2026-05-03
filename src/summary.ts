@@ -48,6 +48,25 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
         }
     }
 
+    lines.push("", "## Smoke Projects", "");
+
+    if (result.smokeProjects.length === 0) {
+        lines.push("Smoke project checks were skipped.");
+    } else {
+        lines.push("| Project | Restore | Test | Failed Stage |");
+        lines.push("| --- | --- | --- | --- |");
+
+        for (const smokeProject of result.smokeProjects) {
+            lines.push(
+                `| ${tableValue(smokeProject.projectPath)} | ${icon(
+                    smokeProject.restoreSucceeded,
+                )} | ${icon(smokeProject.testSucceeded)} | ${failureStage(
+                    smokeProject.failureStage,
+                )} |`,
+            );
+        }
+    }
+
     lines.push("", "## Paths", "");
     lines.push(`- Local feed: ${result.localFeedDirectory}`);
     lines.push(`- Artifacts: ${result.artifactsDirectory}`);
@@ -58,8 +77,13 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
             !consumer.restoreSucceeded ||
             !consumer.buildSucceeded,
     );
+    const failedSmokeProjects = result.smokeProjects.filter(
+        (smokeProject) =>
+            !smokeProject.restoreSucceeded ||
+            !smokeProject.testSucceeded,
+    );
 
-    if (failedConsumers.length > 0) {
+    if (failedConsumers.length > 0 || failedSmokeProjects.length > 0) {
         lines.push("", "## Failure Details", "");
 
         for (const consumer of failedConsumers) {
@@ -67,6 +91,14 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
             lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
             lines.push("```text");
             lines.push(consumer.failureOutput);
+            lines.push("```", "");
+        }
+
+        for (const smokeProject of failedSmokeProjects) {
+            lines.push(`### Smoke project ${smokeProject.projectPath}`, "");
+            lines.push(`Failed stage: ${failureStage(smokeProject.failureStage)}`, "");
+            lines.push("```text");
+            lines.push(smokeProject.failureOutput);
             lines.push("```", "");
         }
     }

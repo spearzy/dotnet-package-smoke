@@ -5,6 +5,7 @@ import {
     buildNewConsumerArgs,
     buildPackArgs,
     buildRestoreArgs,
+    buildTestArgs,
 } from "../src/dotnet";
 
 describe("dotnet argument builders", () => {
@@ -60,6 +61,17 @@ describe("dotnet argument builders", () => {
             .toEqual([
                 "build",
                 "src/MyLibrary/MyLibrary.csproj",
+                "-c",
+                "Release",
+                "--no-restore",
+            ]);
+    });
+
+    it("builds test args with no-restore", () => {
+        expect(buildTestArgs("smoke/MyLibrary.Tests/MyLibrary.Tests.csproj", "Release", true))
+            .toEqual([
+                "test",
+                "smoke/MyLibrary.Tests/MyLibrary.Tests.csproj",
                 "-c",
                 "Release",
                 "--no-restore",

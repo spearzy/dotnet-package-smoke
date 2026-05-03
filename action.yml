@@ -21,6 +21,10 @@ inputs:
     description: Generated consumer project type. One of classlib or console.
     required: false
     default: classlib
+
+  smoke-projects:
+    description: Optional smoke test projects to restore and test against the local feed. Supports multiline values, comma-separated values, and globs.
+    required: false
   
   working-directory:
     description: Directory used to resolve project paths and globs.
@@ -66,6 +70,15 @@ outputs:
 
   generated-consumers-failed:
     description: Number of generated consumer projects that failed install, restore, or build.
+
+  smoke-projects-tested:
+    description: Number of smoke projects tested.
+
+  smoke-projects-passed:
+    description: Number of smoke projects that passed restore and test.
+
+  smoke-projects-failed:
+    description: Number of smoke projects that failed restore or test.
 
 runs:
   using: node24

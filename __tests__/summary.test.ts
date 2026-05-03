@@ -15,6 +15,7 @@ function createResult(
         ],
         packageProjects: ["/repo/src/MyLibrary/MyLibrary.csproj"],
         generatedConsumers: [],
+        smokeProjects: [],
         artifactsDirectory: "/tmp/artifacts",
         localFeedDirectory: "/tmp/feed",
         ...overrides,
@@ -82,5 +83,29 @@ describe("createMarkdownSummary", () => {
         expect(summary).toContain("Failed stage: restore");
         expect(summary).toContain("## Failure Details");
         expect(summary).toContain("NU1101: Unable to find package MyLibrary");
+    });
+
+    it("summarises smoke project failures", async () => {
+        const { createMarkdownSummary } = await import("../src/summary");
+
+        const summary = createMarkdownSummary(
+            createResult({
+                smokeProjects: [
+                    {
+                        projectPath: "/repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj",
+                        restoreSucceeded: true,
+                        testSucceeded: false,
+                        failureStage: "test",
+                        failureOutput: "Expected true but got false",
+                    },
+                ],
+            }),
+        );
+
+        expect(summary).toContain(
+            "| /repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj | ✅ | ❌ | test |",
+        );
+        expect(summary).toContain("### Smoke project /repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj");
+        expect(summary).toContain("Expected true but got false");
     });
 });

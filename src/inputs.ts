@@ -8,6 +8,7 @@ export interface ActionInputs {
     generatedConsumers: boolean;
     consumerTargetFrameworks: string[];
     consumerProjectType: ConsumerProjectType;
+    smokeProjects: string[];
     workingDirectory: string;
     configuration: string;
     artifactsDirectory: string;
@@ -67,9 +68,16 @@ export function getInputs(): ActionInputs {
     const generatedConsumers = parseBooleanInput(
         core.getInput("generated-consumers"), "generated-consumers", true
     );
+    const smokeProjects = parseListInput(core.getInput("smoke-projects"));
 
     if (packageProjects.length === 0) {
         throw new Error("Input 'package-projects' must include at least one project.");
+    }
+
+    if (!generatedConsumers && smokeProjects.length === 0) {
+        throw new Error(
+            "At least one validation mode must be enabled: generated-consumers must be true or smoke-projects must include at least one project.",
+        );
     }
 
     return {
@@ -77,6 +85,7 @@ export function getInputs(): ActionInputs {
         generatedConsumers,
         consumerTargetFrameworks: parseListInput(core.getInput("consumer-target-frameworks") || "net8.0"),
         consumerProjectType: parseConsumerProjectType(core.getInput("consumer-project-type")),
+        smokeProjects,
         workingDirectory: path.resolve(workingDirectoryInput),
         configuration: core.getInput("configuration") || "Release",
         artifactsDirectory:
