@@ -37054,6 +37054,88 @@ module.exports = {
 
 /***/ }),
 
+/***/ 2797:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runDotnet = runDotnet;
+exports.buildRestoreArgs = buildRestoreArgs;
+exports.buildBuildArgs = buildBuildArgs;
+exports.buildPackArgs = buildPackArgs;
+const exec = __importStar(__nccwpck_require__(5236));
+async function runDotnet(args, cwd) {
+    let stdout = "";
+    let stderr = "";
+    const exitCode = await exec.exec("dotnet", args, {
+        cwd,
+        ignoreReturnCode: true,
+        listeners: {
+            stdout: (data) => {
+                stdout += data.toString("utf8");
+            },
+            stderr: (data) => {
+                stderr += data.toString("utf8");
+            },
+        },
+    });
+    return {
+        exitCode,
+        stdout,
+        stderr,
+    };
+}
+function buildRestoreArgs(project) {
+    return ["restore", project];
+}
+function buildBuildArgs(project, configuration, noRestore) {
+    const args = ["build", project, "-c", configuration];
+    if (noRestore) {
+        args.push("--no-restore");
+    }
+    return args;
+}
+function buildPackArgs(project, configuration, outputDirectory) {
+    return ["pack", project, "-c", configuration, "--output", outputDirectory];
+}
+
+
+/***/ }),
+
 /***/ 5601:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -37169,6 +37251,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const inputs_1 = __nccwpck_require__(8422);
 const glob_1 = __nccwpck_require__(5601);
+const dotnet_1 = __nccwpck_require__(2797);
 async function main() {
     const inputs = (0, inputs_1.getInputs)();
     core.info("dotnet-package-smoke is running.");
@@ -37177,6 +37260,11 @@ async function main() {
     for (const project of packageProjects) {
         core.info(`Resolved package project: ${project}`);
     }
+    const dotnetInfo = await (0, dotnet_1.runDotnet)(["--info"], inputs.workingDirectory);
+    if (dotnetInfo.exitCode !== 0) {
+        throw new Error("dotnet --info failed. Make sure the .NET SDK is installed.");
+    }
+    core.info("dotnet SDK is available.");
     core.setOutput("packages-packed", "0");
 }
 main().catch((error) => {

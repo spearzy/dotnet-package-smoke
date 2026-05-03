@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import { getInputs } from "./inputs";
 import { resolveProjectGlobs } from "./glob";
+import { runDotnet } from "./dotnet";
 
 async function main(): Promise<void> {
     const inputs = getInputs();
@@ -17,6 +18,15 @@ async function main(): Promise<void> {
     for (const project of packageProjects) {
         core.info(`Resolved package project: ${project}`);
     }
+
+    const dotnetInfo = await runDotnet(["--info"], inputs.workingDirectory);
+
+    if (dotnetInfo.exitCode !== 0) {
+        throw new Error("dotnet --info failed. Make sure the .NET SDK is installed.");
+    }
+
+    core.info("dotnet SDK is available.");
+
 
     core.setOutput("packages-packed", "0");
 }
