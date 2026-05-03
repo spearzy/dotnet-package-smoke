@@ -127,6 +127,13 @@ When the action runs, it writes a GitHub job summary with:
 - retained workspace paths when `retain-on-failure` is enabled and a check fails
 - failure details for generated consumer and smoke project failures
 
+## Documentation
+
+- [Changelog](CHANGELOG.md)
+- [Design notes](docs/design.md)
+- [Marketplace notes](docs/marketplace.md)
+- [Workflow examples](examples/)
+
 ## Development
 
 Install dependencies:
@@ -154,5 +161,5 @@ npm run all      # Build, test, and bundle
 
 Next milestones:
 
-1. Expand README examples.
-2. Prepare marketplace documentation.
+1. Add community files.
+2. Prepare the first tagged release.

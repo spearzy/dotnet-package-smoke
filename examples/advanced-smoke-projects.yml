@@ -15,7 +15,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: Run package smoke action
         uses: spearzy/dotnet-package-smoke@v1
@@ -27,7 +29,6 @@ jobs:
           consumer-target-frameworks: |
             net8.0
             net9.0
-            net10.0
           pack-arguments: >-
             -p:ContinuousIntegrationBuild=true
           retain-on-failure: true
