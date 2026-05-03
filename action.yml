@@ -11,6 +11,11 @@ inputs:
     description: Create generated temporary consumer projects.
     required: false
     default: "true"
+  
+  working-directory:
+    description: Directory used to resolve project paths and globs.
+    required: false
+    default: "."
 
 outputs:
   packages-packed:

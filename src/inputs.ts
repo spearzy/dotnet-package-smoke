@@ -1,8 +1,10 @@
 import * as core from "@actions/core";
+import path from "node:path";
 
 export interface ActionInputs {
     packageProjects: string[];
     generatedConsumers: boolean;
+    workingDirectory: string;
 }
 
 export function parseListInput(value: string): string[] {
@@ -38,6 +40,7 @@ export function parseBooleanInput(
 
 export function getInputs(): ActionInputs {
     const packageProjects = parseListInput(core.getInput("package-projects", { required: true }));
+    const workingDirectoryInput = core.getInput("working-directory") || ".";
     const generatedConsumers = parseBooleanInput(
         core.getInput("generated-consumers"), "generated-consumers", true
     );
@@ -48,6 +51,7 @@ export function getInputs(): ActionInputs {
 
     return {
         packageProjects,
-        generatedConsumers
+        generatedConsumers,
+        workingDirectory: path.resolve(workingDirectoryInput),
     };
 }

@@ -13,7 +13,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@actions/core": "^1.11.1"
+    "@actions/core": "^1.11.1",
+    "@actions/glob": "0.5.1"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",
