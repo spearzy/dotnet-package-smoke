@@ -6,6 +6,7 @@ import {
     buildBuildArgs,
     buildNewConsumerArgs,
     buildRestoreArgs,
+    CommandResult,
     runDotnet,
 } from "./dotnet";
 import { ConsumerProjectType } from "./inputs";
@@ -21,6 +22,7 @@ export interface GeneratedConsumerResult {
     installSucceeded: boolean;
     restoreSucceeded: boolean;
     buildSucceeded: boolean;
+    failureOutput: string;
 }
 
 function safeName(value: string): string {
@@ -31,16 +33,8 @@ function generatedConsumerProjectName(targetFramework: string): string {
     return `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
 }
 
-async function runRequiredDotnetCommand(
-    args: string[],
-    cwd: string,
-    failureMessage: string,
-): Promise<void> {
-    const result = await runDotnet(args, cwd);
-
-    if (result.exitCode !== 0) {
-        throw new Error(`${failureMessage}\n\n${result.stdout}\n${result.stderr}`);
-    }
+function commandOutput(result: CommandResult): string {
+    return `${result.stdout}\n${result.stderr}`.trim();
 }
 
 async function createGeneratedConsumer(
@@ -56,47 +50,84 @@ async function createGeneratedConsumer(
     const projectName = generatedConsumerProjectName(targetFramework);
     const projectDirectory = path.join(workspaceDirectory, targetFramework);
     const projectPath = path.join(projectDirectory, `${projectName}.csproj`);
-
-    logger.info(`Creating generated consumer for ${targetFramework}.`);
-
-    await runRequiredDotnetCommand(
-        buildNewConsumerArgs(projectType, projectName, projectDirectory, targetFramework),
-        workspaceDirectory,
-        `dotnet new failed for generated consumer ${targetFramework}.`,
-    );
-
-    for (const packageFile of packages) {
-        logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
-
-        await runRequiredDotnetCommand(
-            buildAddPackageArgs(projectPath, packageFile.id, packageFile.version, localFeedDirectory),
-            workspaceDirectory,
-            `dotnet add package failed for ${packageFile.id} ${packageFile.version} in generated consumer ${targetFramework}.`,
-        );
-    }
-
-    logger.info(`Restoring generated consumer for ${targetFramework}.`);
-    await runRequiredDotnetCommand(
-        buildRestoreArgs(projectPath, nugetConfigPath, true),
-        workspaceDirectory,
-        `dotnet restore failed for generated consumer ${targetFramework}.`,
-    );
-
-    logger.info(`Building generated consumer for ${targetFramework}.`);
-    await runRequiredDotnetCommand(
-        buildBuildArgs(projectPath, configuration, true),
-        workspaceDirectory,
-        `dotnet build failed for generated consumer ${targetFramework}.`,
-    );
-
-    return {
+    const resultBase = {
         targetFramework,
         projectType,
         projectPath,
         packagesInstalled: packages,
+    };
+
+    logger.info(`Creating generated consumer for ${targetFramework}.`);
+
+    const create = await runDotnet(
+        buildNewConsumerArgs(projectType, projectName, projectDirectory, targetFramework),
+        workspaceDirectory,
+    );
+    if (create.exitCode !== 0) {
+        return {
+            ...resultBase,
+            installSucceeded: false,
+            restoreSucceeded: false,
+            buildSucceeded: false,
+            failureOutput: commandOutput(create),
+        };
+    }
+
+    for (const packageFile of packages) {
+        logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
+
+        const add = await runDotnet(
+            buildAddPackageArgs(projectPath, packageFile.id, packageFile.version, localFeedDirectory),
+            workspaceDirectory,
+        );
+
+        if (add.exitCode !== 0) {
+            return {
+                ...resultBase,
+                installSucceeded: false,
+                restoreSucceeded: false,
+                buildSucceeded: false,
+                failureOutput: commandOutput(add),
+            };
+        }
+    }
+
+    logger.info(`Restoring generated consumer for ${targetFramework}.`);
+    const restore = await runDotnet(
+        buildRestoreArgs(projectPath, nugetConfigPath, true),
+        workspaceDirectory,
+    );
+    if (restore.exitCode !== 0) {
+        return {
+            ...resultBase,
+            installSucceeded: true,
+            restoreSucceeded: false,
+            buildSucceeded: false,
+            failureOutput: commandOutput(restore),
+        };
+    }
+
+    logger.info(`Building generated consumer for ${targetFramework}.`);
+    const build = await runDotnet(
+        buildBuildArgs(projectPath, configuration, true),
+        workspaceDirectory,
+    );
+    if (build.exitCode !== 0) {
+        return {
+            ...resultBase,
+            installSucceeded: true,
+            restoreSucceeded: true,
+            buildSucceeded: false,
+            failureOutput: commandOutput(build),
+        };
+    }
+
+    return {
+        ...resultBase,
         installSucceeded: true,
         restoreSucceeded: true,
         buildSucceeded: true,
+        failureOutput: "",
     };
 }
 

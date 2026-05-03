@@ -40520,34 +40520,71 @@ function safeName(value) {
 function generatedConsumerProjectName(targetFramework) {
     return `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
 }
-async function runRequiredDotnetCommand(args, cwd, failureMessage) {
-    const result = await (0, dotnet_1.runDotnet)(args, cwd);
-    if (result.exitCode !== 0) {
-        throw new Error(`${failureMessage}\n\n${result.stdout}\n${result.stderr}`);
-    }
+function commandOutput(result) {
+    return `${result.stdout}\n${result.stderr}`.trim();
 }
 async function createGeneratedConsumer(targetFramework, projectType, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger) {
     const projectName = generatedConsumerProjectName(targetFramework);
     const projectDirectory = path.join(workspaceDirectory, targetFramework);
     const projectPath = path.join(projectDirectory, `${projectName}.csproj`);
-    logger.info(`Creating generated consumer for ${targetFramework}.`);
-    await runRequiredDotnetCommand((0, dotnet_1.buildNewConsumerArgs)(projectType, projectName, projectDirectory, targetFramework), workspaceDirectory, `dotnet new failed for generated consumer ${targetFramework}.`);
-    for (const packageFile of packages) {
-        logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
-        await runRequiredDotnetCommand((0, dotnet_1.buildAddPackageArgs)(projectPath, packageFile.id, packageFile.version, localFeedDirectory), workspaceDirectory, `dotnet add package failed for ${packageFile.id} ${packageFile.version} in generated consumer ${targetFramework}.`);
-    }
-    logger.info(`Restoring generated consumer for ${targetFramework}.`);
-    await runRequiredDotnetCommand((0, dotnet_1.buildRestoreArgs)(projectPath, nugetConfigPath, true), workspaceDirectory, `dotnet restore failed for generated consumer ${targetFramework}.`);
-    logger.info(`Building generated consumer for ${targetFramework}.`);
-    await runRequiredDotnetCommand((0, dotnet_1.buildBuildArgs)(projectPath, configuration, true), workspaceDirectory, `dotnet build failed for generated consumer ${targetFramework}.`);
-    return {
+    const resultBase = {
         targetFramework,
         projectType,
         projectPath,
         packagesInstalled: packages,
+    };
+    logger.info(`Creating generated consumer for ${targetFramework}.`);
+    const create = await (0, dotnet_1.runDotnet)((0, dotnet_1.buildNewConsumerArgs)(projectType, projectName, projectDirectory, targetFramework), workspaceDirectory);
+    if (create.exitCode !== 0) {
+        return {
+            ...resultBase,
+            installSucceeded: false,
+            restoreSucceeded: false,
+            buildSucceeded: false,
+            failureOutput: commandOutput(create),
+        };
+    }
+    for (const packageFile of packages) {
+        logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
+        const add = await (0, dotnet_1.runDotnet)((0, dotnet_1.buildAddPackageArgs)(projectPath, packageFile.id, packageFile.version, localFeedDirectory), workspaceDirectory);
+        if (add.exitCode !== 0) {
+            return {
+                ...resultBase,
+                installSucceeded: false,
+                restoreSucceeded: false,
+                buildSucceeded: false,
+                failureOutput: commandOutput(add),
+            };
+        }
+    }
+    logger.info(`Restoring generated consumer for ${targetFramework}.`);
+    const restore = await (0, dotnet_1.runDotnet)((0, dotnet_1.buildRestoreArgs)(projectPath, nugetConfigPath, true), workspaceDirectory);
+    if (restore.exitCode !== 0) {
+        return {
+            ...resultBase,
+            installSucceeded: true,
+            restoreSucceeded: false,
+            buildSucceeded: false,
+            failureOutput: commandOutput(restore),
+        };
+    }
+    logger.info(`Building generated consumer for ${targetFramework}.`);
+    const build = await (0, dotnet_1.runDotnet)((0, dotnet_1.buildBuildArgs)(projectPath, configuration, true), workspaceDirectory);
+    if (build.exitCode !== 0) {
+        return {
+            ...resultBase,
+            installSucceeded: true,
+            restoreSucceeded: true,
+            buildSucceeded: false,
+            failureOutput: commandOutput(build),
+        };
+    }
+    return {
+        ...resultBase,
         installSucceeded: true,
         restoreSucceeded: true,
         buildSucceeded: true,
+        failureOutput: "",
     };
 }
 async function runGeneratedConsumers(targetFrameworks, projectType, configuration, localFeedDirectory, packages, logger) {
@@ -41005,6 +41042,9 @@ function resolveOutputDirectory(workingDirectory, outputDirectory) {
         ? outputDirectory
         : path.join(workingDirectory, outputDirectory);
 }
+function generatedConsumerFailed(consumer) {
+    return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
+}
 async function runRequiredDotnetCommand(args, cwd, failureMessage) {
     const result = await (0, dotnet_1.runDotnet)(args, cwd);
     if (result.exitCode !== 0) {
@@ -41048,6 +41088,10 @@ async function runPackageSmoke(inputs, logger) {
     const generatedConsumers = inputs.generatedConsumers
         ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, inputs.configuration, localFeedDirectory, packages, logger)
         : [];
+    const failedGeneratedConsumers = generatedConsumers.filter(generatedConsumerFailed);
+    if (failedGeneratedConsumers.length > 0) {
+        throw new Error(`${failedGeneratedConsumers.length} generated consumer check(s) failed.`);
+    }
     return {
         packages,
         packageProjects,
