@@ -4,7 +4,7 @@ author: dotnet-package-smoke contributors
 
 inputs:
   package-projects:
-    description: Projects to pack. This will support multiline values and globs later on
+    description: Projects to pack. Supports multiline values, comma-separated values, and globs.
     required: true
 
   generated-consumers:

@@ -4,7 +4,7 @@ Test your NuGet packages the way consumers install them.
 
 `dotnet-package-smoke` is an in-progress GitHub Action for .NET package authors. The goal is to pack one or more projects into a local NuGet feed, then verify the produced packages from generated temporary consumer projects.
 
-This project is early in development. It can currently resolve package projects, restore/build/pack them, find produced `.nupkg` files, extract package ID/version metadata, copy packages to a local feed, and create generated consumer projects that reference the produced packages from that local feed.
+This project is early in development. It can currently resolve package projects, restore/build/pack them, find produced `.nupkg` files, extract package ID/version metadata, copy packages to a local feed, create generated consumer projects, install the produced packages from that local feed, restore the generated consumers, build them, and write a GitHub job summary.
 
 This action is intended to catch package-consumption problems before release, including restore failures, missing dependencies, bad package layout, and packages that work through `ProjectReference` but fail for real consumers.
 
@@ -75,6 +75,15 @@ Later, this will become:
 | `generated-consumers-passed` | Number of generated consumers that passed install, restore, and build. |
 | `generated-consumers-failed` | Number of generated consumers that failed install, restore, or build. |
 
+## Job summary
+
+When the action runs, it writes a GitHub job summary with:
+
+- packages found after packing
+- generated consumer install, restore, and build status
+- local feed and artifacts paths
+- failure details for generated consumer failures
+
 ## Development
 
 Install dependencies:
@@ -116,8 +125,8 @@ The CI workflow checks that `dist/` is current after `npm run package`.
 
 Next milestones:
 
-1. Restore generated consumers from the local feed.
-2. Build generated consumers.
-3. Fail clearly on generated consumer install, restore, or build failures.
-4. Add a useful GitHub job summary.
-5. Add optional user-provided smoke project support.
+1. Improve generated consumer failure output.
+2. Add optional user-provided smoke project support.
+3. Add cleanup and retain-on-failure behavior.
+4. Expand README examples.
+5. Prepare marketplace documentation.

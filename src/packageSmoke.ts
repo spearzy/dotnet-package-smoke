@@ -29,10 +29,6 @@ function resolveOutputDirectory(
         : path.join(workingDirectory, outputDirectory);
 }
 
-function generatedConsumerFailed(consumer: GeneratedConsumerResult): boolean {
-    return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
-}
-
 async function runRequiredDotnetCommand(
     args: string[],
     cwd: string,
@@ -143,11 +139,6 @@ export async function runPackageSmoke(
             logger,
         )
         : [];
-
-    const failedGeneratedConsumers = generatedConsumers.filter(generatedConsumerFailed);
-    if (failedGeneratedConsumers.length > 0) {
-        throw new Error(`${failedGeneratedConsumers.length} generated consumer check(s) failed.`);
-    }
 
     return {
         packages,

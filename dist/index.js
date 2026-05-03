@@ -40722,17 +40722,25 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const inputs_1 = __nccwpck_require__(8422);
 const packageSmoke_1 = __nccwpck_require__(2906);
+const summary_1 = __nccwpck_require__(8855);
+function generatedConsumerFailed(consumer) {
+    return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
+}
 async function main() {
     const inputs = (0, inputs_1.getInputs)();
     const result = await (0, packageSmoke_1.runPackageSmoke)(inputs, {
         info: (message) => core.info(message),
     });
-    const failedGeneratedConsumers = result.generatedConsumers.filter((consumer) => !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded);
+    const failedGeneratedConsumers = result.generatedConsumers.filter(generatedConsumerFailed);
     core.setOutput("packages-packed", result.packages.length.toString());
     core.setOutput("local-feed-directory", result.localFeedDirectory);
     core.setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
     core.setOutput("generated-consumers-passed", (result.generatedConsumers.length - failedGeneratedConsumers.length).toString());
     core.setOutput("generated-consumers-failed", failedGeneratedConsumers.length.toString());
+    await core.summary.addRaw((0, summary_1.createMarkdownSummary)(result)).write();
+    if (failedGeneratedConsumers.length > 0) {
+        throw new Error(`${failedGeneratedConsumers.length} generated consumer check(s) failed.`);
+    }
 }
 main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -41045,9 +41053,6 @@ function resolveOutputDirectory(workingDirectory, outputDirectory) {
         ? outputDirectory
         : path.join(workingDirectory, outputDirectory);
 }
-function generatedConsumerFailed(consumer) {
-    return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
-}
 async function runRequiredDotnetCommand(args, cwd, failureMessage) {
     const result = await (0, dotnet_1.runDotnet)(args, cwd);
     if (result.exitCode !== 0) {
@@ -41091,10 +41096,6 @@ async function runPackageSmoke(inputs, logger) {
     const generatedConsumers = inputs.generatedConsumers
         ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, inputs.configuration, localFeedDirectory, packages, logger)
         : [];
-    const failedGeneratedConsumers = generatedConsumers.filter(generatedConsumerFailed);
-    if (failedGeneratedConsumers.length > 0) {
-        throw new Error(`${failedGeneratedConsumers.length} generated consumer check(s) failed.`);
-    }
     return {
         packages,
         packageProjects,
@@ -41175,6 +41176,60 @@ async function findPackageFiles(artifactsDirectory) {
         };
     })
         .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+
+/***/ }),
+
+/***/ 8855:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createMarkdownSummary = createMarkdownSummary;
+function icon(value) {
+    return value ? "✅" : "❌";
+}
+function tableValue(value) {
+    return value.replaceAll("|", "\\|").replaceAll("\n", " ");
+}
+function createMarkdownSummary(result) {
+    const lines = [];
+    lines.push("# .NET Package Smoke Tests", "");
+    lines.push("## Packages", "");
+    lines.push("| Package | Version | Path |");
+    lines.push("| --- | --- | --- |");
+    for (const packageFile of result.packages) {
+        lines.push(`| ${tableValue(packageFile.id)} | ${tableValue(packageFile.version)} | ${tableValue(packageFile.path)} |`);
+    }
+    lines.push("", "## Generated Consumers", "");
+    if (result.generatedConsumers.length === 0) {
+        lines.push("Generated consumer checks were skipped.");
+    }
+    else {
+        lines.push("| Target Framework | Project Type | Install | Restore | Build |");
+        lines.push("| --- | --- | --- | --- | --- |");
+        for (const consumer of result.generatedConsumers) {
+            lines.push(`| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${icon(consumer.installSucceeded)} | ${icon(consumer.restoreSucceeded)} | ${icon(consumer.buildSucceeded)} |`);
+        }
+    }
+    lines.push("", "## Paths", "");
+    lines.push(`- Local feed: ${result.localFeedDirectory}`);
+    lines.push(`- Artifacts: ${result.artifactsDirectory}`);
+    const failedConsumers = result.generatedConsumers.filter((consumer) => !consumer.installSucceeded ||
+        !consumer.restoreSucceeded ||
+        !consumer.buildSucceeded);
+    if (failedConsumers.length > 0) {
+        lines.push("", "## Failure Details", "");
+        for (const consumer of failedConsumers) {
+            lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
+            lines.push("```text");
+            lines.push(consumer.failureOutput);
+            lines.push("```", "");
+        }
+    }
+    return lines.join("\n");
 }
 
 
