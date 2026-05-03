@@ -15,6 +15,36 @@ describe("dotnet argument builders", () => {
         ]);
     });
 
+    it("builds restore args with a NuGet config file", () => {
+        expect(
+            buildRestoreArgs(
+                "src/MyLibrary/MyLibrary.csproj",
+                "/tmp/NuGet.config",
+            ),
+        ).toEqual([
+            "restore",
+            "src/MyLibrary/MyLibrary.csproj",
+            "--configfile",
+            "/tmp/NuGet.config",
+        ]);
+    });
+
+    it("builds restore args that ignore failed package sources", () => {
+        expect(
+            buildRestoreArgs(
+                "src/MyLibrary/MyLibrary.csproj",
+                "/tmp/NuGet.config",
+                true,
+            ),
+        ).toEqual([
+            "restore",
+            "src/MyLibrary/MyLibrary.csproj",
+            "--configfile",
+            "/tmp/NuGet.config",
+            "--ignore-failed-sources",
+        ]);
+    });
+
     it("builds build args without no-restore", () => {
         expect(buildBuildArgs("src/MyLibrary/MyLibrary.csproj", "Release", false))
             .toEqual([
@@ -93,6 +123,7 @@ describe("dotnet argument builders", () => {
             "/tmp/consumer",
             "--framework",
             "net8.0",
+            "--no-restore",
         ]);
     });
 

@@ -133,6 +133,7 @@ export async function runPackageSmoke(
         ? await runGeneratedConsumers(
             inputs.consumerTargetFrameworks,
             inputs.consumerProjectType,
+            inputs.configuration,
             localFeedDirectory,
             packages,
             logger,

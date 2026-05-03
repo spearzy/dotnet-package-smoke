@@ -33,8 +33,22 @@ export async function runDotnet(
     };
 }
 
-export function buildRestoreArgs(project: string): string[] {
-    return ["restore", project];
+export function buildRestoreArgs(
+    project: string,
+    configFile?: string,
+    ignoreFailedSources = false,
+): string[] {
+    const args = ["restore", project];
+
+    if (configFile !== undefined) {
+        args.push("--configfile", configFile);
+    }
+
+    if (ignoreFailedSources) {
+        args.push("--ignore-failed-sources");
+    }
+
+    return args;
 }
 
 export function buildBuildArgs(
@@ -82,6 +96,7 @@ export function buildNewConsumerArgs(
         outputDirectory,
         "--framework",
         targetFramework,
+        "--no-restore",
     ];
 }
 

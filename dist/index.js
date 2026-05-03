@@ -40412,8 +40412,15 @@ async function runDotnet(args, cwd) {
         stderr,
     };
 }
-function buildRestoreArgs(project) {
-    return ["restore", project];
+function buildRestoreArgs(project, configFile, ignoreFailedSources = false) {
+    const args = ["restore", project];
+    if (configFile !== undefined) {
+        args.push("--configfile", configFile);
+    }
+    if (ignoreFailedSources) {
+        args.push("--ignore-failed-sources");
+    }
+    return args;
 }
 function buildBuildArgs(project, configuration, noRestore) {
     const args = ["build", project, "-c", configuration];
@@ -40442,6 +40449,7 @@ function buildNewConsumerArgs(projectType, projectName, outputDirectory, targetF
         outputDirectory,
         "--framework",
         targetFramework,
+        "--no-restore",
     ];
 }
 function buildAddPackageArgs(project, packageId, version, localFeedDirectory) {
@@ -40505,6 +40513,7 @@ const fs = __importStar(__nccwpck_require__(1455));
 const os = __importStar(__nccwpck_require__(8161));
 const path = __importStar(__nccwpck_require__(6760));
 const dotnet_1 = __nccwpck_require__(2797);
+const nugetConfig_1 = __nccwpck_require__(9254);
 function safeName(value) {
     return value.replace(/[^A-Za-z0-9_]/g, "_");
 }
@@ -40517,7 +40526,7 @@ async function runRequiredDotnetCommand(args, cwd, failureMessage) {
         throw new Error(`${failureMessage}\n\n${result.stdout}\n${result.stderr}`);
     }
 }
-async function createGeneratedConsumer(targetFramework, projectType, workspaceDirectory, localFeedDirectory, packages, logger) {
+async function createGeneratedConsumer(targetFramework, projectType, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger) {
     const projectName = generatedConsumerProjectName(targetFramework);
     const projectDirectory = path.join(workspaceDirectory, targetFramework);
     const projectPath = path.join(projectDirectory, `${projectName}.csproj`);
@@ -40527,19 +40536,29 @@ async function createGeneratedConsumer(targetFramework, projectType, workspaceDi
         logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
         await runRequiredDotnetCommand((0, dotnet_1.buildAddPackageArgs)(projectPath, packageFile.id, packageFile.version, localFeedDirectory), workspaceDirectory, `dotnet add package failed for ${packageFile.id} ${packageFile.version} in generated consumer ${targetFramework}.`);
     }
+    logger.info(`Restoring generated consumer for ${targetFramework}.`);
+    await runRequiredDotnetCommand((0, dotnet_1.buildRestoreArgs)(projectPath, nugetConfigPath, true), workspaceDirectory, `dotnet restore failed for generated consumer ${targetFramework}.`);
+    logger.info(`Building generated consumer for ${targetFramework}.`);
+    await runRequiredDotnetCommand((0, dotnet_1.buildBuildArgs)(projectPath, configuration, true), workspaceDirectory, `dotnet build failed for generated consumer ${targetFramework}.`);
     return {
         targetFramework,
         projectType,
         projectPath,
         packagesInstalled: packages,
+        installSucceeded: true,
+        restoreSucceeded: true,
+        buildSucceeded: true,
     };
 }
-async function runGeneratedConsumers(targetFrameworks, projectType, localFeedDirectory, packages, logger) {
+async function runGeneratedConsumers(targetFrameworks, projectType, configuration, localFeedDirectory, packages, logger) {
     const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-consumers-"));
+    const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
+    const globalPackagesFolder = path.join(workspaceDirectory, "packages");
     try {
+        await fs.writeFile(nugetConfigPath, (0, nugetConfig_1.createNuGetConfig)(localFeedDirectory, globalPackagesFolder), "utf8");
         const results = [];
         for (const targetFramework of targetFrameworks) {
-            results.push(await createGeneratedConsumer(targetFramework, projectType, workspaceDirectory, localFeedDirectory, packages, logger));
+            results.push(await createGeneratedConsumer(targetFramework, projectType, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger));
         }
         return results;
     }
@@ -40844,6 +40863,40 @@ async function copyPackagesToLocalFeed(packages, localFeedDirectory) {
 
 /***/ }),
 
+/***/ 9254:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createNuGetConfig = createNuGetConfig;
+function xmlEscape(value) {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+function createNuGetConfig(localFeedDirectory, globalPackagesFolder) {
+    return [
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+        "<configuration>",
+        "  <config>",
+        `    <add key="globalPackagesFolder" value="${xmlEscape(globalPackagesFolder)}" />`,
+        "  </config>",
+        "  <packageSources>",
+        "    <clear />",
+        `    <add key="dotnet-package-smoke-local" value="${xmlEscape(localFeedDirectory)}" />`,
+        "    <add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />",
+        "  </packageSources>",
+        "</configuration>",
+        "",
+    ].join("\n");
+}
+
+
+/***/ }),
+
 /***/ 9174:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -40993,7 +41046,7 @@ async function runPackageSmoke(inputs, logger) {
     await (0, localFeed_1.copyPackagesToLocalFeed)(packages, localFeedDirectory);
     logger.info(`Local NuGet feed: ${localFeedDirectory}`);
     const generatedConsumers = inputs.generatedConsumers
-        ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, localFeedDirectory, packages, logger)
+        ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, inputs.configuration, localFeedDirectory, packages, logger)
         : [];
     return {
         packages,

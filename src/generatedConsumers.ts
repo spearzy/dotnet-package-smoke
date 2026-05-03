@@ -1,9 +1,16 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildAddPackageArgs, buildNewConsumerArgs, runDotnet } from "./dotnet";
+import {
+    buildAddPackageArgs,
+    buildBuildArgs,
+    buildNewConsumerArgs,
+    buildRestoreArgs,
+    runDotnet,
+} from "./dotnet";
 import { ConsumerProjectType } from "./inputs";
 import { Logger } from "./logger";
+import { createNuGetConfig } from "./nugetConfig";
 import { PackageFile } from "./packages";
 
 export interface GeneratedConsumerResult {
@@ -11,6 +18,9 @@ export interface GeneratedConsumerResult {
     projectType: ConsumerProjectType;
     projectPath: string;
     packagesInstalled: PackageFile[];
+    installSucceeded: boolean;
+    restoreSucceeded: boolean;
+    buildSucceeded: boolean;
 }
 
 function safeName(value: string): string {
@@ -36,7 +46,9 @@ async function runRequiredDotnetCommand(
 async function createGeneratedConsumer(
     targetFramework: string,
     projectType: ConsumerProjectType,
+    configuration: string,
     workspaceDirectory: string,
+    nugetConfigPath: string,
     localFeedDirectory: string,
     packages: PackageFile[],
     logger: Logger,
@@ -63,24 +75,50 @@ async function createGeneratedConsumer(
         );
     }
 
+    logger.info(`Restoring generated consumer for ${targetFramework}.`);
+    await runRequiredDotnetCommand(
+        buildRestoreArgs(projectPath, nugetConfigPath, true),
+        workspaceDirectory,
+        `dotnet restore failed for generated consumer ${targetFramework}.`,
+    );
+
+    logger.info(`Building generated consumer for ${targetFramework}.`);
+    await runRequiredDotnetCommand(
+        buildBuildArgs(projectPath, configuration, true),
+        workspaceDirectory,
+        `dotnet build failed for generated consumer ${targetFramework}.`,
+    );
+
     return {
         targetFramework,
         projectType,
         projectPath,
         packagesInstalled: packages,
+        installSucceeded: true,
+        restoreSucceeded: true,
+        buildSucceeded: true,
     };
 }
 
 export async function runGeneratedConsumers(
     targetFrameworks: string[],
     projectType: ConsumerProjectType,
+    configuration: string,
     localFeedDirectory: string,
     packages: PackageFile[],
     logger: Logger,
 ): Promise<GeneratedConsumerResult[]> {
     const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-consumers-"));
+    const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
+    const globalPackagesFolder = path.join(workspaceDirectory, "packages");
 
     try {
+        await fs.writeFile(
+            nugetConfigPath,
+            createNuGetConfig(localFeedDirectory, globalPackagesFolder),
+            "utf8",
+        );
+
         const results: GeneratedConsumerResult[] = [];
 
         for (const targetFramework of targetFrameworks) {
@@ -88,7 +126,9 @@ export async function runGeneratedConsumers(
                 await createGeneratedConsumer(
                     targetFramework,
                     projectType,
+                    configuration,
                     workspaceDirectory,
+                    nugetConfigPath,
                     localFeedDirectory,
                     packages,
                     logger,
