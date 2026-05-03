@@ -1,0 +1,139 @@
+import * as path from "node:path";
+import {
+    buildBuildArgs,
+    buildPackArgs,
+    buildRestoreArgs,
+    runDotnet,
+} from "./dotnet";
+import { resolveProjectGlobs } from "./glob";
+import { ActionInputs } from "./inputs";
+import { cleanLocalFeed, copyPackagesToLocalFeed } from "./localFeed";
+import { cleanPackageFiles, findPackageFiles, PackageFile } from "./packages";
+
+export interface Logger {
+    info(message: string): void;
+}
+
+export interface PackageSmokeResult {
+    packages: PackageFile[];
+    packageProjects: string[];
+    artifactsDirectory: string;
+    localFeedDirectory: string;
+}
+
+function resolveOutputDirectory(
+    workingDirectory: string,
+    outputDirectory: string,
+): string {
+    return path.isAbsolute(outputDirectory)
+        ? outputDirectory
+        : path.join(workingDirectory, outputDirectory);
+}
+
+async function runRequiredDotnetCommand(
+    args: string[],
+    cwd: string,
+    failureMessage: string,
+): Promise<void> {
+    const result = await runDotnet(args, cwd);
+
+    if (result.exitCode !== 0) {
+        throw new Error(`${failureMessage}\n\n${result.stdout}\n${result.stderr}`);
+    }
+}
+
+async function packProject(
+    project: string,
+    inputs: ActionInputs,
+    artifactsDirectory: string,
+    logger: Logger,
+): Promise<void> {
+    logger.info(`Packing project: ${project}`);
+
+    if (inputs.restoreBeforePack) {
+        await runRequiredDotnetCommand(
+            buildRestoreArgs(project),
+            inputs.workingDirectory,
+            `dotnet restore failed for ${project}.`,
+        );
+    }
+
+    if (inputs.buildBeforePack) {
+        await runRequiredDotnetCommand(
+            buildBuildArgs(project, inputs.configuration, inputs.restoreBeforePack),
+            inputs.workingDirectory,
+            `dotnet build failed for ${project}.`,
+        );
+    }
+
+    await runRequiredDotnetCommand(
+        buildPackArgs(
+            project,
+            inputs.configuration,
+            artifactsDirectory,
+            inputs.restoreBeforePack,
+            inputs.buildBeforePack,
+        ),
+        inputs.workingDirectory,
+        `dotnet pack failed for ${project}.`,
+    );
+}
+
+export async function runPackageSmoke(
+    inputs: ActionInputs,
+    logger: Logger,
+): Promise<PackageSmokeResult> {
+    logger.info("dotnet-package-smoke is running.");
+    logger.info(`Generated consumers: ${inputs.generatedConsumers}`);
+    logger.info(`Configuration: ${inputs.configuration}`);
+    logger.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
+    logger.info(`Restore before pack: ${inputs.restoreBeforePack}`);
+    logger.info(`Build before pack: ${inputs.buildBeforePack}`);
+
+    const packageProjects = await resolveProjectGlobs(
+        inputs.packageProjects,
+        inputs.workingDirectory,
+        "package-projects",
+    );
+
+    const artifactsDirectory = resolveOutputDirectory(
+        inputs.workingDirectory,
+        inputs.artifactsDirectory,
+    );
+
+    const localFeedDirectory = resolveOutputDirectory(
+        inputs.workingDirectory,
+        inputs.localFeedDirectory,
+    );
+
+    await cleanPackageFiles(artifactsDirectory);
+    await cleanLocalFeed(localFeedDirectory);
+
+    for (const project of packageProjects) {
+        await packProject(project, inputs, artifactsDirectory, logger);
+    }
+
+    const packages = await findPackageFiles(artifactsDirectory);
+
+    if (packages.length === 0) {
+        throw new Error(
+            `dotnet pack completed, but no .nupkg files were found in ${artifactsDirectory}.`,
+        );
+    }
+
+    for (const packageFile of packages) {
+        logger.info(
+            `Package created: ${packageFile.id} ${packageFile.version} (${packageFile.path})`,
+        );
+    }
+
+    await copyPackagesToLocalFeed(packages, localFeedDirectory);
+    logger.info(`Local NuGet feed: ${localFeedDirectory}`);
+
+    return {
+        packages,
+        packageProjects,
+        artifactsDirectory,
+        localFeedDirectory,
+    };
+}

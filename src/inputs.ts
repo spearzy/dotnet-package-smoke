@@ -9,7 +9,7 @@ export interface ActionInputs {
     artifactsDirectory: string;
     restoreBeforePack: boolean;
     buildBeforePack: boolean;
-
+    localFeedDirectory: string;
 }
 
 export function parseListInput(value: string): string[] {
@@ -61,6 +61,8 @@ export function getInputs(): ActionInputs {
         configuration: core.getInput("configuration") || "Release",
         artifactsDirectory:
             core.getInput("artifacts-directory") || ".dotnet-package-smoke/artifacts",
+        localFeedDirectory:
+            core.getInput("local-feed-directory") || ".dotnet-package-smoke/feed",
         restoreBeforePack: parseBooleanInput(
             core.getInput("restore-before-pack"),
             "restore-before-pack",
@@ -70,7 +72,6 @@ export function getInputs(): ActionInputs {
             core.getInput("build-before-pack"),
             "build-before-pack",
             true,
-        ),
-
+        )
     };
 }

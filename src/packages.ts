@@ -9,6 +9,17 @@ export interface PackageFile {
     version: string;
 }
 
+export async function cleanPackageFiles(directory: string): Promise<void> {
+    await fs.mkdir(directory, { recursive: true });
+
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+
+    await Promise.all(
+        entries
+            .filter((entry) => entry.isFile() && /\.(s)?nupkg$/i.test(entry.name))
+            .map((entry) => fs.unlink(path.join(directory, entry.name))),
+    );
+}
 
 export async function findPackageFiles(
     artifactsDirectory: string,
