@@ -147,6 +147,7 @@ export async function runPackageSmoke(
             inputs.configuration,
             localFeedDirectory,
             packages,
+            inputs.retainOnFailure,
             logger,
         )
         : [];
@@ -157,6 +158,7 @@ export async function runPackageSmoke(
             inputs.workingDirectory,
             inputs.configuration,
             localFeedDirectory,
+            inputs.retainOnFailure,
             logger,
         )
         : [];

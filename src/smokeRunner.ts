@@ -18,6 +18,7 @@ export interface SmokeProjectResult {
     testSucceeded: boolean;
     failureStage: SmokeProjectFailureStage | null;
     failureOutput: string;
+    retainedWorkspace: string | null;
 }
 
 function commandOutput(result: CommandResult): string {
@@ -60,6 +61,7 @@ async function runSmokeProject(
             testSucceeded: false,
             failureStage: "restore",
             failureOutput: commandOutput(restore),
+            retainedWorkspace: null,
         };
     }
 
@@ -79,6 +81,7 @@ async function runSmokeProject(
             testSucceeded: false,
             failureStage: "test",
             failureOutput: commandOutput(test),
+            retainedWorkspace: null,
         };
     }
 
@@ -88,6 +91,7 @@ async function runSmokeProject(
         testSucceeded: true,
         failureStage: null,
         failureOutput: "",
+        retainedWorkspace: null,
     };
 }
 
@@ -96,11 +100,13 @@ export async function runSmokeProjects(
     workingDirectory: string,
     configuration: string,
     localFeedDirectory: string,
+    retainOnFailure: boolean,
     logger: Logger,
 ): Promise<SmokeProjectResult[]> {
     const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-projects-"));
     const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
     const globalPackagesFolder = path.join(workspaceDirectory, "packages");
+    let retainWorkspace = false;
 
     try {
         await fs.writeFile(
@@ -125,8 +131,29 @@ export async function runSmokeProjects(
             );
         }
 
-        return results;
+        retainWorkspace = retainOnFailure && results.some(
+            (result) => !result.restoreSucceeded || !result.testSucceeded,
+        );
+
+        if (!retainWorkspace) {
+            return results;
+        }
+
+        logger.info(`Retaining smoke project workspace: ${workspaceDirectory}`);
+
+        return results.map((result) => {
+            if (result.restoreSucceeded && result.testSucceeded) {
+                return result;
+            }
+
+            return {
+                ...result,
+                retainedWorkspace: workspaceDirectory,
+            };
+        });
     } finally {
-        await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        if (!retainWorkspace) {
+            await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        }
     }
 }

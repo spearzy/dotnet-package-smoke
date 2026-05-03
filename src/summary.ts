@@ -12,6 +12,12 @@ function failureStage(value: string | null): string {
     return value === null ? "" : value;
 }
 
+function uniqueValues(values: Array<string | null>): string[] {
+    return Array.from(
+        new Set(values.filter((value): value is string => value !== null)),
+    );
+}
+
 export function createMarkdownSummary(result: PackageSmokeResult): string {
     const lines: string[] = [];
 
@@ -71,6 +77,19 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
     lines.push(`- Local feed: ${result.localFeedDirectory}`);
     lines.push(`- Artifacts: ${result.artifactsDirectory}`);
 
+    const retainedWorkspaces = uniqueValues([
+        ...result.generatedConsumers.map((consumer) => consumer.retainedWorkspace),
+        ...result.smokeProjects.map((smokeProject) => smokeProject.retainedWorkspace),
+    ]);
+
+    if (retainedWorkspaces.length > 0) {
+        lines.push("", "## Retained Workspaces", "");
+
+        for (const retainedWorkspace of retainedWorkspaces) {
+            lines.push(`- ${retainedWorkspace}`);
+        }
+    }
+
     const failedConsumers = result.generatedConsumers.filter(
         (consumer) =>
             !consumer.installSucceeded ||
@@ -89,6 +108,9 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
         for (const consumer of failedConsumers) {
             lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
             lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
+            if (consumer.retainedWorkspace !== null) {
+                lines.push(`Retained workspace: ${consumer.retainedWorkspace}`, "");
+            }
             lines.push("```text");
             lines.push(consumer.failureOutput);
             lines.push("```", "");
@@ -97,6 +119,9 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
         for (const smokeProject of failedSmokeProjects) {
             lines.push(`### Smoke project ${smokeProject.projectPath}`, "");
             lines.push(`Failed stage: ${failureStage(smokeProject.failureStage)}`, "");
+            if (smokeProject.retainedWorkspace !== null) {
+                lines.push(`Retained workspace: ${smokeProject.retainedWorkspace}`, "");
+            }
             lines.push("```text");
             lines.push(smokeProject.failureOutput);
             lines.push("```", "");

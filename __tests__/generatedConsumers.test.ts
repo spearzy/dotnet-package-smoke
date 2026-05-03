@@ -1,3 +1,4 @@
+import * as fs from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runGeneratedConsumers } from "../src/generatedConsumers";
 import { PackageFile } from "../src/packages";
@@ -49,6 +50,7 @@ describe("runGeneratedConsumers", () => {
             "Release",
             "/tmp/feed",
             packages,
+            false,
             { info: () => undefined },
         );
 
@@ -84,6 +86,7 @@ describe("runGeneratedConsumers", () => {
             "Release",
             "/tmp/feed",
             packages,
+            false,
             { info: () => undefined },
         );
 
@@ -120,6 +123,7 @@ describe("runGeneratedConsumers", () => {
             "Release",
             "/tmp/feed",
             packages,
+            false,
             { info: () => undefined },
         );
 
@@ -156,6 +160,7 @@ describe("runGeneratedConsumers", () => {
             "Release",
             "/tmp/feed",
             packages,
+            false,
             { info: () => undefined },
         );
 
@@ -167,5 +172,32 @@ describe("runGeneratedConsumers", () => {
             failureOutput: "build failed\nCS0246",
         });
         expect(mockedRunDotnet).toHaveBeenCalledTimes(4);
+    });
+
+    it("retains the generated consumer workspace when requested and a check fails", async () => {
+        mockedRunDotnet
+            .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+            .mockResolvedValueOnce({
+                exitCode: 1,
+                stdout: "install failed",
+                stderr: "NU1102",
+            });
+
+        const results = await runGeneratedConsumers(
+            ["net8.0"],
+            "classlib",
+            "Release",
+            "/tmp/feed",
+            packages,
+            true,
+            { info: () => undefined },
+        );
+
+        const retainedWorkspace = results[0].retainedWorkspace;
+
+        expect(retainedWorkspace).not.toBeNull();
+        await expect(fs.stat(retainedWorkspace as string)).resolves.toBeDefined();
+
+        await fs.rm(retainedWorkspace as string, { recursive: true, force: true });
     });
 });

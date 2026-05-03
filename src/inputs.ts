@@ -15,6 +15,7 @@ export interface ActionInputs {
     restoreBeforePack: boolean;
     buildBeforePack: boolean;
     packArguments: string[];
+    retainOnFailure: boolean;
     localFeedDirectory: string;
 }
 
@@ -174,6 +175,11 @@ export function getInputs(): ActionInputs {
         packArguments: parseArgumentInput(
             core.getInput("pack-arguments"),
             "pack-arguments",
+        ),
+        retainOnFailure: parseBooleanInput(
+            core.getInput("retain-on-failure"),
+            "retain-on-failure",
+            false,
         ),
     };
 }

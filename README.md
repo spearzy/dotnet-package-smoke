@@ -2,17 +2,18 @@
 
 Test your NuGet packages the way consumers install them.
 
-`dotnet-package-smoke` is an in-progress GitHub Action for .NET package authors. The goal is to pack one or more projects into a local NuGet feed, then verify the produced packages from generated temporary consumer projects. Optional smoke test projects can also be restored and tested against the local feed.
+`dotnet-package-smoke` is an in-progress GitHub Action for .NET package authors. It packs one or more projects into a local NuGet feed, then checks that the produced packages can be installed, restored, and built by generated temporary consumer projects.
 
-This project is early in development. It can currently resolve package projects, restore/build/pack them, find produced `.nupkg` files, extract package ID/version metadata, copy packages to a local feed, create generated consumer projects, install the produced packages from that local feed, restore the generated consumers, build them, run optional smoke test projects, and write a GitHub job summary.
+Optional smoke test projects can also be restored and tested against the same local feed for deeper API validation.
 
 This action is intended to catch package-consumption problems before release, including restore failures, missing dependencies, bad package layout, and packages that work through `ProjectReference` but fail for real consumers.
 
 ## Usage
 
-This action is still early in development, but the core generated consumer flow is implemented. It packs projects, installs the produced packages into temporary consumer projects from a local NuGet feed, restores those consumers, builds them, optionally runs user-provided smoke projects, and reports the results in the GitHub job summary.
+Start with only `package-projects`. Generated consumer checks are enabled by default.
 
 For now, use it as an additional package-consumption confidence check alongside your existing tests and release validation.
+
 Example workflow:
 
 ```yaml
@@ -42,7 +43,7 @@ jobs:
             src/MyLibrary/MyLibrary.csproj
 ```
 
-Later, this will become:
+When using the published action:
 
 ```yaml
 - uses: spearzy/dotnet-package-smoke@v1
@@ -79,7 +80,21 @@ With extra `dotnet pack` arguments:
 
 `pack-arguments` supports quoted values and is passed to `dotnet pack` as arguments, not through a shell.
 
-## Inputs
+To keep temporary workspaces for debugging failed checks:
+
+```yaml
+- uses: spearzy/dotnet-package-smoke@v1
+  with:
+    package-projects: |
+      src/MyLibrary/MyLibrary.csproj
+    retain-on-failure: true
+```
+
+When enabled, failed generated consumer or smoke project workspaces are kept and their paths are written to the logs and job summary. Successful workspaces are still cleaned up.
+
+## Parameters
+
+At least one validation mode must be enabled: either `generated-consumers: true` or a non-empty `smoke-projects` value.
 
 | Input | Required | Default | Description |
 | --- | --- | --- | --- |
@@ -95,6 +110,7 @@ With extra `dotnet pack` arguments:
 | `restore-before-pack` | No | `true` | Run `dotnet restore` before packing. |
 | `build-before-pack` | No | `true` | Run `dotnet build` before packing. |
 | `pack-arguments` | No | | Additional arguments passed to `dotnet pack`. Supports quoted values. |
+| `retain-on-failure` | No | `false` | Keep failed generated consumer and smoke project temporary workspaces for debugging. |
 
 ## Outputs
 
@@ -117,6 +133,7 @@ When the action runs, it writes a GitHub job summary with:
 - generated consumer install, restore, and build status
 - smoke project restore and test status
 - local feed and artifacts paths
+- retained workspace paths when `retain-on-failure` is enabled and a check fails
 - failure details for generated consumer and smoke project failures
 
 ## Development
@@ -160,6 +177,5 @@ The CI workflow checks that `dist/` is current after `npm run package`.
 
 Next milestones:
 
-1. Add cleanup and retain-on-failure behaviour.
-2. Expand README examples.
-3. Prepare marketplace documentation.
+1. Expand README examples.
+2. Prepare marketplace documentation.

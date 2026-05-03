@@ -1,3 +1,4 @@
+import * as fs from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runSmokeProjects } from "../src/smokeRunner";
 
@@ -32,6 +33,7 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            false,
             { info: () => undefined },
         );
 
@@ -58,6 +60,7 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            false,
             { info: () => undefined },
         );
 
@@ -84,6 +87,7 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            false,
             { info: () => undefined },
         );
 
@@ -108,6 +112,7 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            false,
             { info: () => undefined },
         );
 
@@ -115,5 +120,29 @@ describe("runSmokeProjects", () => {
 
         expect(firstCallArgs).toContainEqual(expect.stringContaining("-p:BaseOutputPath="));
         expect(firstCallArgs).toContainEqual(expect.stringContaining("-p:BaseIntermediateOutputPath="));
+    });
+
+    it("retains the smoke project workspace when requested and a check fails", async () => {
+        mockedRunDotnet.mockResolvedValueOnce({
+            exitCode: 1,
+            stdout: "restore failed",
+            stderr: "NU1101",
+        });
+
+        const results = await runSmokeProjects(
+            ["/repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj"],
+            "/repo",
+            "Release",
+            "/tmp/feed",
+            true,
+            { info: () => undefined },
+        );
+
+        const retainedWorkspace = results[0].retainedWorkspace;
+
+        expect(retainedWorkspace).not.toBeNull();
+        await expect(fs.stat(retainedWorkspace as string)).resolves.toBeDefined();
+
+        await fs.rm(retainedWorkspace as string, { recursive: true, force: true });
     });
 });

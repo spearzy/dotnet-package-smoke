@@ -26,6 +26,7 @@ export interface GeneratedConsumerResult {
     buildSucceeded: boolean;
     failureStage: GeneratedConsumerFailureStage | null;
     failureOutput: string;
+    retainedWorkspace: string | null;
 }
 
 function safeName(value: string): string {
@@ -58,6 +59,7 @@ async function createGeneratedConsumer(
         projectType,
         projectPath,
         packagesInstalled: packages,
+        retainedWorkspace: null,
     };
 
     logger.info(`Creating generated consumer for ${targetFramework}.`);
@@ -145,11 +147,13 @@ export async function runGeneratedConsumers(
     configuration: string,
     localFeedDirectory: string,
     packages: PackageFile[],
+    retainOnFailure: boolean,
     logger: Logger,
 ): Promise<GeneratedConsumerResult[]> {
     const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-consumers-"));
     const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
     const globalPackagesFolder = path.join(workspaceDirectory, "packages");
+    let retainWorkspace = false;
 
     try {
         await fs.writeFile(
@@ -175,8 +179,32 @@ export async function runGeneratedConsumers(
             );
         }
 
-        return results;
+        retainWorkspace = retainOnFailure && results.some(
+            (result) =>
+                !result.installSucceeded ||
+                !result.restoreSucceeded ||
+                !result.buildSucceeded,
+        );
+
+        if (!retainWorkspace) {
+            return results;
+        }
+
+        logger.info(`Retaining generated consumer workspace: ${workspaceDirectory}`);
+
+        return results.map((result) => {
+            if (result.installSucceeded && result.restoreSucceeded && result.buildSucceeded) {
+                return result;
+            }
+
+            return {
+                ...result,
+                retainedWorkspace: workspaceDirectory,
+            };
+        });
     } finally {
-        await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        if (!retainWorkspace) {
+            await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        }
     }
 }

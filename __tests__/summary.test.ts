@@ -49,6 +49,7 @@ describe("createMarkdownSummary", () => {
                         buildSucceeded: true,
                         failureStage: null,
                         failureOutput: "",
+                        retainedWorkspace: null,
                     },
                 ],
             }),
@@ -74,6 +75,7 @@ describe("createMarkdownSummary", () => {
                         buildSucceeded: false,
                         failureStage: "restore",
                         failureOutput: "NU1101: Unable to find package MyLibrary",
+                        retainedWorkspace: null,
                     },
                 ],
             }),
@@ -97,6 +99,7 @@ describe("createMarkdownSummary", () => {
                         testSucceeded: false,
                         failureStage: "test",
                         failureOutput: "Expected true but got false",
+                        retainedWorkspace: null,
                     },
                 ],
             }),
@@ -107,5 +110,32 @@ describe("createMarkdownSummary", () => {
         );
         expect(summary).toContain("### Smoke project /repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj");
         expect(summary).toContain("Expected true but got false");
+    });
+
+    it("includes retained workspaces when failed checks are kept", async () => {
+        const { createMarkdownSummary } = await import("../src/summary");
+
+        const summary = createMarkdownSummary(
+            createResult({
+                generatedConsumers: [
+                    {
+                        targetFramework: "net8.0",
+                        projectType: "classlib",
+                        projectPath: "/tmp/consumer/Consumer.csproj",
+                        packagesInstalled: [],
+                        installSucceeded: false,
+                        restoreSucceeded: false,
+                        buildSucceeded: false,
+                        failureStage: "install",
+                        failureOutput: "install failed",
+                        retainedWorkspace: "/tmp/dotnet-package-smoke-consumers-123",
+                    },
+                ],
+            }),
+        );
+
+        expect(summary).toContain("## Retained Workspaces");
+        expect(summary).toContain("- /tmp/dotnet-package-smoke-consumers-123");
+        expect(summary).toContain("Retained workspace: /tmp/dotnet-package-smoke-consumers-123");
     });
 });

@@ -40541,6 +40541,7 @@ async function createGeneratedConsumer(targetFramework, projectType, configurati
         projectType,
         projectPath,
         packagesInstalled: packages,
+        retainedWorkspace: null,
     };
     logger.info(`Creating generated consumer for ${targetFramework}.`);
     const create = await (0, dotnet_1.runDotnet)((0, dotnet_1.buildNewConsumerArgs)(projectType, projectName, projectDirectory, targetFramework), workspaceDirectory);
@@ -40601,20 +40602,38 @@ async function createGeneratedConsumer(targetFramework, projectType, configurati
         failureOutput: "",
     };
 }
-async function runGeneratedConsumers(targetFrameworks, projectType, configuration, localFeedDirectory, packages, logger) {
+async function runGeneratedConsumers(targetFrameworks, projectType, configuration, localFeedDirectory, packages, retainOnFailure, logger) {
     const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-consumers-"));
     const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
     const globalPackagesFolder = path.join(workspaceDirectory, "packages");
+    let retainWorkspace = false;
     try {
         await fs.writeFile(nugetConfigPath, (0, nugetConfig_1.createNuGetConfig)(localFeedDirectory, globalPackagesFolder), "utf8");
         const results = [];
         for (const targetFramework of targetFrameworks) {
             results.push(await createGeneratedConsumer(targetFramework, projectType, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger));
         }
-        return results;
+        retainWorkspace = retainOnFailure && results.some((result) => !result.installSucceeded ||
+            !result.restoreSucceeded ||
+            !result.buildSucceeded);
+        if (!retainWorkspace) {
+            return results;
+        }
+        logger.info(`Retaining generated consumer workspace: ${workspaceDirectory}`);
+        return results.map((result) => {
+            if (result.installSucceeded && result.restoreSucceeded && result.buildSucceeded) {
+                return result;
+            }
+            return {
+                ...result,
+                retainedWorkspace: workspaceDirectory,
+            };
+        });
     }
     finally {
-        await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        if (!retainWorkspace) {
+            await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        }
     }
 }
 
@@ -40970,6 +40989,7 @@ function getInputs() {
         restoreBeforePack: parseBooleanInput(core.getInput("restore-before-pack"), "restore-before-pack", true),
         buildBeforePack: parseBooleanInput(core.getInput("build-before-pack"), "build-before-pack", true),
         packArguments: parseArgumentInput(core.getInput("pack-arguments"), "pack-arguments"),
+        retainOnFailure: parseBooleanInput(core.getInput("retain-on-failure"), "retain-on-failure", false),
     };
 }
 
@@ -41223,10 +41243,10 @@ async function runPackageSmoke(inputs, logger) {
     await (0, localFeed_1.copyPackagesToLocalFeed)(packages, localFeedDirectory);
     logger.info(`Local NuGet feed: ${localFeedDirectory}`);
     const generatedConsumers = inputs.generatedConsumers
-        ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, inputs.configuration, localFeedDirectory, packages, logger)
+        ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, inputs.configuration, localFeedDirectory, packages, inputs.retainOnFailure, logger)
         : [];
     const smokeProjects = smokeProjectPaths.length > 0
-        ? await (0, smokeRunner_1.runSmokeProjects)(smokeProjectPaths, inputs.workingDirectory, inputs.configuration, localFeedDirectory, logger)
+        ? await (0, smokeRunner_1.runSmokeProjects)(smokeProjectPaths, inputs.workingDirectory, inputs.configuration, localFeedDirectory, inputs.retainOnFailure, logger)
         : [];
     return {
         packages,
@@ -41383,6 +41403,7 @@ async function runSmokeProject(projectPath, projectIndex, workingDirectory, conf
             testSucceeded: false,
             failureStage: "restore",
             failureOutput: commandOutput(restore),
+            retainedWorkspace: null,
         };
     }
     logger.info(`Testing smoke project: ${projectPath}`);
@@ -41397,6 +41418,7 @@ async function runSmokeProject(projectPath, projectIndex, workingDirectory, conf
             testSucceeded: false,
             failureStage: "test",
             failureOutput: commandOutput(test),
+            retainedWorkspace: null,
         };
     }
     return {
@@ -41405,22 +41427,39 @@ async function runSmokeProject(projectPath, projectIndex, workingDirectory, conf
         testSucceeded: true,
         failureStage: null,
         failureOutput: "",
+        retainedWorkspace: null,
     };
 }
-async function runSmokeProjects(smokeProjects, workingDirectory, configuration, localFeedDirectory, logger) {
+async function runSmokeProjects(smokeProjects, workingDirectory, configuration, localFeedDirectory, retainOnFailure, logger) {
     const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-projects-"));
     const nugetConfigPath = path.join(workspaceDirectory, "NuGet.config");
     const globalPackagesFolder = path.join(workspaceDirectory, "packages");
+    let retainWorkspace = false;
     try {
         await fs.writeFile(nugetConfigPath, (0, nugetConfig_1.createNuGetConfig)(localFeedDirectory, globalPackagesFolder), "utf8");
         const results = [];
         for (const [index, smokeProject] of smokeProjects.entries()) {
             results.push(await runSmokeProject(smokeProject, index, workingDirectory, configuration, nugetConfigPath, workspaceDirectory, logger));
         }
-        return results;
+        retainWorkspace = retainOnFailure && results.some((result) => !result.restoreSucceeded || !result.testSucceeded);
+        if (!retainWorkspace) {
+            return results;
+        }
+        logger.info(`Retaining smoke project workspace: ${workspaceDirectory}`);
+        return results.map((result) => {
+            if (result.restoreSucceeded && result.testSucceeded) {
+                return result;
+            }
+            return {
+                ...result,
+                retainedWorkspace: workspaceDirectory,
+            };
+        });
     }
     finally {
-        await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        if (!retainWorkspace) {
+            await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        }
     }
 }
 
@@ -41442,6 +41481,9 @@ function tableValue(value) {
 }
 function failureStage(value) {
     return value === null ? "" : value;
+}
+function uniqueValues(values) {
+    return Array.from(new Set(values.filter((value) => value !== null)));
 }
 function createMarkdownSummary(result) {
     const lines = [];
@@ -41477,6 +41519,16 @@ function createMarkdownSummary(result) {
     lines.push("", "## Paths", "");
     lines.push(`- Local feed: ${result.localFeedDirectory}`);
     lines.push(`- Artifacts: ${result.artifactsDirectory}`);
+    const retainedWorkspaces = uniqueValues([
+        ...result.generatedConsumers.map((consumer) => consumer.retainedWorkspace),
+        ...result.smokeProjects.map((smokeProject) => smokeProject.retainedWorkspace),
+    ]);
+    if (retainedWorkspaces.length > 0) {
+        lines.push("", "## Retained Workspaces", "");
+        for (const retainedWorkspace of retainedWorkspaces) {
+            lines.push(`- ${retainedWorkspace}`);
+        }
+    }
     const failedConsumers = result.generatedConsumers.filter((consumer) => !consumer.installSucceeded ||
         !consumer.restoreSucceeded ||
         !consumer.buildSucceeded);
@@ -41487,6 +41539,9 @@ function createMarkdownSummary(result) {
         for (const consumer of failedConsumers) {
             lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
             lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
+            if (consumer.retainedWorkspace !== null) {
+                lines.push(`Retained workspace: ${consumer.retainedWorkspace}`, "");
+            }
             lines.push("```text");
             lines.push(consumer.failureOutput);
             lines.push("```", "");
@@ -41494,6 +41549,9 @@ function createMarkdownSummary(result) {
         for (const smokeProject of failedSmokeProjects) {
             lines.push(`### Smoke project ${smokeProject.projectPath}`, "");
             lines.push(`Failed stage: ${failureStage(smokeProject.failureStage)}`, "");
+            if (smokeProject.retainedWorkspace !== null) {
+                lines.push(`Retained workspace: ${smokeProject.retainedWorkspace}`, "");
+            }
             lines.push("```text");
             lines.push(smokeProject.failureOutput);
             lines.push("```", "");

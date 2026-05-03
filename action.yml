@@ -53,6 +53,11 @@ inputs:
   pack-arguments:
     description: Additional arguments passed to dotnet pack. Supports quoted values.
     required: false
+
+  retain-on-failure:
+    description: Keep generated consumer and smoke project temporary workspaces when their checks fail.
+    required: false
+    default: "false"
   
   local-feed-directory:
     description: Directory used as the temporary local NuGet feed.
