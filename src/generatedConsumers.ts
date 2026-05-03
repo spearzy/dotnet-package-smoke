@@ -14,6 +14,8 @@ import { Logger } from "./logger";
 import { createNuGetConfig } from "./nugetConfig";
 import { PackageFile } from "./packages";
 
+export type GeneratedConsumerFailureStage = "create" | "install" | "restore" | "build";
+
 export interface GeneratedConsumerResult {
     targetFramework: string;
     projectType: ConsumerProjectType;
@@ -22,6 +24,7 @@ export interface GeneratedConsumerResult {
     installSucceeded: boolean;
     restoreSucceeded: boolean;
     buildSucceeded: boolean;
+    failureStage: GeneratedConsumerFailureStage | null;
     failureOutput: string;
 }
 
@@ -69,6 +72,7 @@ async function createGeneratedConsumer(
             installSucceeded: false,
             restoreSucceeded: false,
             buildSucceeded: false,
+            failureStage: "create",
             failureOutput: commandOutput(create),
         };
     }
@@ -87,6 +91,7 @@ async function createGeneratedConsumer(
                 installSucceeded: false,
                 restoreSucceeded: false,
                 buildSucceeded: false,
+                failureStage: "install",
                 failureOutput: commandOutput(add),
             };
         }
@@ -103,6 +108,7 @@ async function createGeneratedConsumer(
             installSucceeded: true,
             restoreSucceeded: false,
             buildSucceeded: false,
+            failureStage: "restore",
             failureOutput: commandOutput(restore),
         };
     }
@@ -118,6 +124,7 @@ async function createGeneratedConsumer(
             installSucceeded: true,
             restoreSucceeded: true,
             buildSucceeded: false,
+            failureStage: "build",
             failureOutput: commandOutput(build),
         };
     }
@@ -127,6 +134,7 @@ async function createGeneratedConsumer(
         installSucceeded: true,
         restoreSucceeded: true,
         buildSucceeded: true,
+        failureStage: null,
         failureOutput: "",
     };
 }

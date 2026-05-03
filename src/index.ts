@@ -8,6 +8,27 @@ function generatedConsumerFailed(consumer: GeneratedConsumerResult): boolean {
     return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
 }
 
+function generatedConsumerFailureMessage(consumers: GeneratedConsumerResult[]): string {
+    if (consumers.length === 1) {
+        const consumer = consumers[0];
+        const stage = consumer.failureStage ?? "unknown";
+
+        return `Generated consumer check failed for ${consumer.targetFramework} during ${stage}.`;
+    }
+
+    const failuresByStage = consumers.reduce<Record<string, number>>((counts, consumer) => {
+        const stage = consumer.failureStage ?? "unknown";
+        counts[stage] = (counts[stage] ?? 0) + 1;
+        return counts;
+    }, {});
+
+    const stageSummary = Object.entries(failuresByStage)
+        .map(([stage, count]) => `${stage}: ${count}`)
+        .join(", ");
+
+    return `${consumers.length} generated consumer checks failed (${stageSummary}).`;
+}
+
 async function main(): Promise<void> {
     const inputs = getInputs();
     const result = await runPackageSmoke(inputs, {
@@ -27,7 +48,7 @@ async function main(): Promise<void> {
     await core.summary.addRaw(createMarkdownSummary(result)).write();
 
     if (failedGeneratedConsumers.length > 0) {
-        throw new Error(`${failedGeneratedConsumers.length} generated consumer check(s) failed.`);
+        throw new Error(generatedConsumerFailureMessage(failedGeneratedConsumers));
     }
 }
 

@@ -59,8 +59,43 @@ describe("runGeneratedConsumers", () => {
             installSucceeded: true,
             restoreSucceeded: true,
             buildSucceeded: true,
+            failureStage: null,
             failureOutput: "",
         });
+    });
+
+    it("returns a failed install result without running restore or build", async () => {
+        // The calls are consumed in order:
+        // 1. dotnet new succeeds
+        // 2. dotnet add package fails
+        //
+        // Restore and build should never run after package installation fails.
+        mockedRunDotnet
+            .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+            .mockResolvedValueOnce({
+                exitCode: 1,
+                stdout: "install failed",
+                stderr: "NU1102",
+            });
+
+        const results = await runGeneratedConsumers(
+            ["net8.0"],
+            "classlib",
+            "Release",
+            "/tmp/feed",
+            packages,
+            { info: () => undefined },
+        );
+
+        expect(results[0]).toMatchObject({
+            installSucceeded: false,
+            restoreSucceeded: false,
+            buildSucceeded: false,
+            failureStage: "install",
+            failureOutput: "install failed\nNU1102",
+        });
+        // If this is 3 or more, the code carried on after add package failed.
+        expect(mockedRunDotnet).toHaveBeenCalledTimes(2);
     });
 
     it("returns a failed restore result without running build", async () => {
@@ -92,9 +127,45 @@ describe("runGeneratedConsumers", () => {
             installSucceeded: true,
             restoreSucceeded: false,
             buildSucceeded: false,
+            failureStage: "restore",
             failureOutput: "restore failed\nNU1101",
         });
         // If this is 4, the code tried to build even though restore failed.
         expect(mockedRunDotnet).toHaveBeenCalledTimes(3);
+    });
+
+    it("returns a failed build result after successful restore", async () => {
+        // The calls are consumed in order:
+        // 1. dotnet new succeeds
+        // 2. dotnet add package succeeds
+        // 3. dotnet restore succeeds
+        // 4. dotnet build fails
+        mockedRunDotnet
+            .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+            .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+            .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+            .mockResolvedValueOnce({
+                exitCode: 1,
+                stdout: "build failed",
+                stderr: "CS0246",
+            });
+
+        const results = await runGeneratedConsumers(
+            ["net8.0"],
+            "classlib",
+            "Release",
+            "/tmp/feed",
+            packages,
+            { info: () => undefined },
+        );
+
+        expect(results[0]).toMatchObject({
+            installSucceeded: true,
+            restoreSucceeded: true,
+            buildSucceeded: false,
+            failureStage: "build",
+            failureOutput: "build failed\nCS0246",
+        });
+        expect(mockedRunDotnet).toHaveBeenCalledTimes(4);
     });
 });

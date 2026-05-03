@@ -46,13 +46,14 @@ describe("createMarkdownSummary", () => {
                         installSucceeded: true,
                         restoreSucceeded: true,
                         buildSucceeded: true,
+                        failureStage: null,
                         failureOutput: "",
                     },
                 ],
             }),
         );
 
-        expect(summary).toContain("| net8.0 | classlib | ✅ | ✅ | ✅ |");
+        expect(summary).toContain("| net8.0 | classlib | ✅ | ✅ | ✅ |  |");
         expect(summary).not.toContain("## Failure Details");
     });
 
@@ -70,13 +71,15 @@ describe("createMarkdownSummary", () => {
                         installSucceeded: true,
                         restoreSucceeded: false,
                         buildSucceeded: false,
+                        failureStage: "restore",
                         failureOutput: "NU1101: Unable to find package MyLibrary",
                     },
                 ],
             }),
         );
 
-        expect(summary).toContain("| net8.0 | console | ✅ | ❌ | ❌ |");
+        expect(summary).toContain("| net8.0 | console | ✅ | ❌ | ❌ | restore |");
+        expect(summary).toContain("Failed stage: restore");
         expect(summary).toContain("## Failure Details");
         expect(summary).toContain("NU1101: Unable to find package MyLibrary");
     });

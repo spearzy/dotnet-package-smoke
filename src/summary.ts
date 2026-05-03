@@ -8,6 +8,10 @@ function tableValue(value: string): string {
     return value.replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
+function failureStage(value: string | null): string {
+    return value === null ? "" : value;
+}
+
 export function createMarkdownSummary(result: PackageSmokeResult): string {
     const lines: string[] = [];
 
@@ -30,14 +34,16 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
     if (result.generatedConsumers.length === 0) {
         lines.push("Generated consumer checks were skipped.");
     } else {
-        lines.push("| Target Framework | Project Type | Install | Restore | Build |");
-        lines.push("| --- | --- | --- | --- | --- |");
+        lines.push("| Target Framework | Project Type | Install | Restore | Build | Failed Stage |");
+        lines.push("| --- | --- | --- | --- | --- | --- |");
 
         for (const consumer of result.generatedConsumers) {
             lines.push(
                 `| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${icon(
                     consumer.installSucceeded,
-                )} | ${icon(consumer.restoreSucceeded)} | ${icon(consumer.buildSucceeded)} |`,
+                )} | ${icon(consumer.restoreSucceeded)} | ${icon(
+                    consumer.buildSucceeded,
+                )} | ${failureStage(consumer.failureStage)} |`,
             );
         }
     }
@@ -58,6 +64,7 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
 
         for (const consumer of failedConsumers) {
             lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
+            lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
             lines.push("```text");
             lines.push(consumer.failureOutput);
             lines.push("```", "");
