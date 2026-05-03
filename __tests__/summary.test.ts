@@ -23,6 +23,58 @@ function createResult(
 }
 
 describe("createMarkdownSummary", () => {
+    it("summarises the overall result first", async () => {
+        const { createMarkdownSummary } = await import("../src/summary");
+
+        const summary = createMarkdownSummary(
+            createResult({
+                packages: [
+                    {
+                        name: "MyLibrary.1.0.0.nupkg",
+                        path: "/tmp/artifacts/MyLibrary.1.0.0.nupkg",
+                        id: "MyLibrary",
+                        version: "1.0.0",
+                    },
+                    {
+                        name: "MyLibrary.Extensions.1.0.0.nupkg",
+                        path: "/tmp/artifacts/MyLibrary.Extensions.1.0.0.nupkg",
+                        id: "MyLibrary.Extensions",
+                        version: "1.0.0",
+                    },
+                ],
+                generatedConsumers: [
+                    {
+                        targetFramework: "net8.0",
+                        projectType: "classlib",
+                        projectPath: "/tmp/consumer/Consumer.csproj",
+                        packagesInstalled: [],
+                        installSucceeded: true,
+                        restoreSucceeded: true,
+                        buildSucceeded: true,
+                        failureStage: null,
+                        failureOutput: "",
+                        retainedWorkspace: null,
+                    },
+                ],
+                smokeProjects: [
+                    {
+                        projectPath: "/repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj",
+                        restoreSucceeded: true,
+                        testSucceeded: true,
+                        failureStage: null,
+                        failureOutput: "",
+                        retainedWorkspace: null,
+                    },
+                ],
+            }),
+        );
+
+        expect(summary).toContain("## Result");
+        expect(summary).toContain("✅ 2 packages packed");
+        expect(summary).toContain("✅ 1 generated consumer checks passed");
+        expect(summary).toContain("✅ 1 smoke projects passed");
+    });
+
     it("summarises packages and output paths", async () => {
         const { createMarkdownSummary } = await import("../src/summary");
 
@@ -137,5 +189,30 @@ describe("createMarkdownSummary", () => {
         expect(summary).toContain("## Retained Workspaces");
         expect(summary).toContain("- /tmp/dotnet-package-smoke-consumers-123");
         expect(summary).toContain("Retained workspace: /tmp/dotnet-package-smoke-consumers-123");
+    });
+
+    it("shows failed counts in the overall result", async () => {
+        const { createMarkdownSummary } = await import("../src/summary");
+
+        const summary = createMarkdownSummary(
+            createResult({
+                generatedConsumers: [
+                    {
+                        targetFramework: "net8.0",
+                        projectType: "classlib",
+                        projectPath: "/tmp/consumer/Consumer.csproj",
+                        packagesInstalled: [],
+                        installSucceeded: false,
+                        restoreSucceeded: false,
+                        buildSucceeded: false,
+                        failureStage: "install",
+                        failureOutput: "install failed",
+                        retainedWorkspace: null,
+                    },
+                ],
+            }),
+        );
+
+        expect(summary).toContain("❌ 0 generated consumer checks passed, 1 failed");
     });
 });

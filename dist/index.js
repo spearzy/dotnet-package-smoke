@@ -41485,9 +41485,27 @@ function failureStage(value) {
 function uniqueValues(values) {
     return Array.from(new Set(values.filter((value) => value !== null)));
 }
+function generatedConsumerFailed(consumer) {
+    return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;
+}
+function smokeProjectFailed(smokeProject) {
+    return !smokeProject.restoreSucceeded || !smokeProject.testSucceeded;
+}
+function resultLine(label, passed, failed) {
+    if (failed === 0) {
+        return `✅ ${passed} ${label} passed`;
+    }
+    return `❌ ${passed} ${label} passed, ${failed} failed`;
+}
 function createMarkdownSummary(result) {
     const lines = [];
+    const failedConsumers = result.generatedConsumers.filter(generatedConsumerFailed);
+    const failedSmokeProjects = result.smokeProjects.filter(smokeProjectFailed);
     lines.push("# .NET Package Smoke Tests", "");
+    lines.push("## Result", "");
+    lines.push(`✅ ${result.packages.length} packages packed`);
+    lines.push(resultLine("generated consumer checks", result.generatedConsumers.length - failedConsumers.length, failedConsumers.length));
+    lines.push(resultLine("smoke projects", result.smokeProjects.length - failedSmokeProjects.length, failedSmokeProjects.length));
     lines.push("## Packages", "");
     lines.push("| Package | Version | Path |");
     lines.push("| --- | --- | --- |");
@@ -41529,11 +41547,6 @@ function createMarkdownSummary(result) {
             lines.push(`- ${retainedWorkspace}`);
         }
     }
-    const failedConsumers = result.generatedConsumers.filter((consumer) => !consumer.installSucceeded ||
-        !consumer.restoreSucceeded ||
-        !consumer.buildSucceeded);
-    const failedSmokeProjects = result.smokeProjects.filter((smokeProject) => !smokeProject.restoreSucceeded ||
-        !smokeProject.testSucceeded);
     if (failedConsumers.length > 0 || failedSmokeProjects.length > 0) {
         lines.push("", "## Failure Details", "");
         for (const consumer of failedConsumers) {

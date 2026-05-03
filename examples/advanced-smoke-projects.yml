@@ -1,0 +1,33 @@
+name: package smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Run package smoke action
+        uses: spearzy/dotnet-package-smoke@v1
+        with:
+          package-projects: |
+            src/MyLibrary/MyLibrary.csproj
+          smoke-projects: |
+            smoke/**/*.csproj
+          consumer-target-frameworks: |
+            net8.0
+            net9.0
+            net10.0
+          pack-arguments: >-
+            -p:ContinuousIntegrationBuild=true
+          retain-on-failure: true

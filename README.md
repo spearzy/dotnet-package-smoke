@@ -37,19 +37,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Run package smoke action
-        uses: ./
+        uses: spearzy/dotnet-package-smoke@v1
         with:
           package-projects: |
             src/MyLibrary/MyLibrary.csproj
-```
-
-When using the published action:
-
-```yaml
-- uses: spearzy/dotnet-package-smoke@v1
-  with:
-    package-projects: |
-      src/MyLibrary/MyLibrary.csproj
 ```
 
 With optional smoke projects:
@@ -158,20 +149,6 @@ npm test         # Run unit tests
 npm run package  # Bundle src/index.ts into dist/index.js
 npm run all      # Build, test, and bundle
 ```
-
-## Notes for JavaScript actions
-
-GitHub Actions runs the JavaScript file referenced by `action.yml`:
-
-```yaml
-runs:
-  using: node24
-  main: dist/index.js
-```
-
-Because this project is written in TypeScript, `src/index.ts` must be bundled before the action can run. The bundled `dist/` files are committed intentionally.
-
-The CI workflow checks that `dist/` is current after `npm run package`.
 
 ## Current roadmap
 
