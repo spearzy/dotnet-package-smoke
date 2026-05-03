@@ -10,8 +10,9 @@ This action is intended to catch package-consumption problems before release, in
 
 ## Usage
 
-This action is not ready for production package validation yet. Generated consumers can be created and packages can be added from the local feed, but generated consumer restore/build validation is still in progress.
+This action is still early in development, but the core generated consumer flow is implemented. It packs projects, installs the produced packages into temporary consumer projects from a local NuGet feed, restores those consumers, builds them, and reports the results in the GitHub job summary.
 
+For now, use it as an additional package-consumption confidence check alongside your existing tests and release validation.
 Example workflow:
 
 ```yaml
