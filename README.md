@@ -130,8 +130,13 @@ When the action runs, it writes a GitHub job summary with:
 ## Documentation
 
 - [Changelog](CHANGELOG.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing](CONTRIBUTING.md)
 - [Design notes](docs/design.md)
+- [End User Licence Agreement](EULA.md)
 - [Marketplace notes](docs/marketplace.md)
+- [Privacy](PRIVACY.md)
+- [Security](SECURITY.md)
 - [Workflow examples](examples/)
 
 ## Development
@@ -161,5 +166,5 @@ npm run all      # Build, test, and bundle
 
 Next milestones:
 
-1. Add community files.
-2. Prepare the first tagged release.
+1. Prepare the first tagged release.
+2. Publish the action to GitHub Marketplace.

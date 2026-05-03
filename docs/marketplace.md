@@ -85,6 +85,7 @@ Before publishing a marketplace release:
 - `README.md` examples point at `spearzy/dotnet-package-smoke@v1`.
 - `examples/` workflows are current.
 - `action.yml` inputs and outputs match the README.
+- `EULA.md`, `PRIVACY.md`, and `SECURITY.md` are current.
 - The release tag is pushed.
 - The GitHub Marketplace listing uses the current tagline and description.
 - Release notes mention new inputs, changed defaults, and any breaking changes.
