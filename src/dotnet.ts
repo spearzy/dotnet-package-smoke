@@ -8,8 +8,7 @@ export interface CommandResult {
 
 export async function runDotnet(
     args: string[],
-    cwd: string,
-): Promise<CommandResult> {
+    cwd: string): Promise<CommandResult> {
     let stdout = "";
     let stderr = "";
 
@@ -40,8 +39,7 @@ export function buildRestoreArgs(project: string): string[] {
 export function buildBuildArgs(
     project: string,
     configuration: string,
-    noRestore: boolean,
-): string[] {
+    noRestore: boolean): string[] {
     const args = ["build", project, "-c", configuration];
 
     if (noRestore) {
@@ -55,6 +53,16 @@ export function buildPackArgs(
     project: string,
     configuration: string,
     outputDirectory: string,
-): string[] {
-    return ["pack", project, "-c", configuration, "--output", outputDirectory];
+    alreadyRestored: boolean,
+    alreadyBuilt: boolean): string[] {
+    const args = ["pack", project, "-c", configuration, "--output", outputDirectory];
+
+    if (alreadyBuilt) {
+        args.push("--no-build");
+    } else if (alreadyRestored) {
+        args.push("--no-restore");
+    }
+
+    return args;
 }
+

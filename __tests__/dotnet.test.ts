@@ -34,12 +34,14 @@ describe("dotnet argument builders", () => {
             ]);
     });
 
-    it("builds pack args", () => {
+    it("builds pack args with --no-build when the project was already built", () => {
         expect(
             buildPackArgs(
                 "src/MyLibrary/MyLibrary.csproj",
                 "Release",
                 "/tmp/artifacts",
+                true,
+                true,
             ),
         ).toEqual([
             "pack",
@@ -48,6 +50,28 @@ describe("dotnet argument builders", () => {
             "Release",
             "--output",
             "/tmp/artifacts",
+            "--no-build",
         ]);
     });
+
+    it("builds pack args with --no-restore when the project was restored but not built", () => {
+        expect(
+            buildPackArgs(
+                "src/MyLibrary/MyLibrary.csproj",
+                "Release",
+                "/tmp/artifacts",
+                true,
+                false,
+            ),
+        ).toEqual([
+            "pack",
+            "src/MyLibrary/MyLibrary.csproj",
+            "-c",
+            "Release",
+            "--output",
+            "/tmp/artifacts",
+            "--no-restore",
+        ]);
+    });
+
 });

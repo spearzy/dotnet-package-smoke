@@ -37129,8 +37129,15 @@ function buildBuildArgs(project, configuration, noRestore) {
     }
     return args;
 }
-function buildPackArgs(project, configuration, outputDirectory) {
-    return ["pack", project, "-c", configuration, "--output", outputDirectory];
+function buildPackArgs(project, configuration, outputDirectory, alreadyRestored, alreadyBuilt) {
+    const args = ["pack", project, "-c", configuration, "--output", outputDirectory];
+    if (alreadyBuilt) {
+        args.push("--no-build");
+    }
+    else if (alreadyRestored) {
+        args.push("--no-restore");
+    }
+    return args;
 }
 
 
@@ -37251,12 +37258,45 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const inputs_1 = __nccwpck_require__(8422);
 const glob_1 = __nccwpck_require__(5601);
+const fs = __importStar(__nccwpck_require__(1455));
+const path = __importStar(__nccwpck_require__(6760));
 const dotnet_1 = __nccwpck_require__(2797);
+function resolveOutputDirectory(workingDirectory, outputDirectory) {
+    return path.isAbsolute(outputDirectory)
+        ? outputDirectory
+        : path.join(workingDirectory, outputDirectory);
+}
+async function cleanPackageFiles(directory) {
+    await fs.mkdir(directory, { recursive: true });
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    await Promise.all(entries
+        .filter((entry) => entry.isFile() && /\.(s)?nupkg$/i.test(entry.name))
+        .map((entry) => fs.unlink(path.join(directory, entry.name))));
+}
+async function runRequiredDotnetCommand(args, cwd, failureMessage) {
+    const result = await (0, dotnet_1.runDotnet)(args, cwd);
+    if (result.exitCode !== 0) {
+        throw new Error(`${failureMessage}\n\n${result.stdout}\n${result.stderr}`);
+    }
+}
 async function main() {
     const inputs = (0, inputs_1.getInputs)();
     core.info("dotnet-package-smoke is running.");
     core.info(`Generated consumers: ${inputs.generatedConsumers}`);
     const packageProjects = await (0, glob_1.resolveProjectGlobs)(inputs.packageProjects, inputs.workingDirectory, "package-projects");
+    const artifactsDirectory = resolveOutputDirectory(inputs.workingDirectory, inputs.artifactsDirectory);
+    await cleanPackageFiles(artifactsDirectory);
+    for (const project of packageProjects) {
+        core.info(`Packing project: ${project}`);
+        if (inputs.restoreBeforePack) {
+            await runRequiredDotnetCommand((0, dotnet_1.buildRestoreArgs)(project), inputs.workingDirectory, `dotnet restore failed for ${project}.`);
+        }
+        if (inputs.buildBeforePack) {
+            await runRequiredDotnetCommand((0, dotnet_1.buildBuildArgs)(project, inputs.configuration, inputs.restoreBeforePack), inputs.workingDirectory, `dotnet build failed for ${project}.`);
+        }
+        await runRequiredDotnetCommand((0, dotnet_1.buildPackArgs)(project, inputs.configuration, artifactsDirectory, inputs.restoreBeforePack, inputs.buildBeforePack), inputs.workingDirectory, `dotnet pack failed for ${project}.`);
+    }
+    core.info(`Packages written to: ${artifactsDirectory}`);
     for (const project of packageProjects) {
         core.info(`Resolved package project: ${project}`);
     }
@@ -37491,6 +37531,14 @@ module.exports = require("node:dns");
 
 "use strict";
 module.exports = require("node:events");
+
+/***/ }),
+
+/***/ 1455:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:fs/promises");
 
 /***/ }),
 
