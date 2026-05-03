@@ -51,7 +51,6 @@ jobs:
         uses: ./
         with:
           package-projects: .tmp/ci-fixture/MyLibrary/MyLibrary.csproj
-          generated-consumers: "false"
           artifacts-directory: .tmp/artifacts
           local-feed-directory: .tmp/feed
 
