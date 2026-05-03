@@ -59,7 +59,13 @@ outputs:
     description: Path to the local NuGet feed.
 
   generated-consumers-tested:
-    description: Number of generated consumer projects created and package-installed.
+    description: Number of generated consumer projects tested.
+
+  generated-consumers-passed:
+    description: Number of generated consumer projects that passed install, restore, and build.
+
+  generated-consumers-failed:
+    description: Number of generated consumer projects that failed install, restore, or build.
 
 runs:
   using: node24

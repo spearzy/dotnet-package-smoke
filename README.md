@@ -71,7 +71,9 @@ Later, this will become:
 | --- | --- |
 | `packages-packed` | Number of `.nupkg` files found after packing. |
 | `local-feed-directory` | Resolved path to the local NuGet feed. |
-| `generated-consumers-tested` | Number of generated consumer projects created and package-installed. |
+| `generated-consumers-tested` | Number of generated consumer projects tested. |
+| `generated-consumers-passed` | Number of generated consumers that passed install, restore, and build. |
+| `generated-consumers-failed` | Number of generated consumers that failed install, restore, or build. |
 
 ## Development
 

@@ -40727,9 +40727,12 @@ async function main() {
     const result = await (0, packageSmoke_1.runPackageSmoke)(inputs, {
         info: (message) => core.info(message),
     });
+    const failedGeneratedConsumers = result.generatedConsumers.filter((consumer) => !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded);
     core.setOutput("packages-packed", result.packages.length.toString());
     core.setOutput("local-feed-directory", result.localFeedDirectory);
     core.setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
+    core.setOutput("generated-consumers-passed", (result.generatedConsumers.length - failedGeneratedConsumers.length).toString());
+    core.setOutput("generated-consumers-failed", failedGeneratedConsumers.length.toString());
 }
 main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
