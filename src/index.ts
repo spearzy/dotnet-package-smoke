@@ -10,6 +10,7 @@ async function main(): Promise<void> {
 
     core.setOutput("packages-packed", result.packages.length.toString());
     core.setOutput("local-feed-directory", result.localFeedDirectory);
+    core.setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
 }
 
 main().catch((error: unknown) => {

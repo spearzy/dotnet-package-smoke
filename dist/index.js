@@ -40388,6 +40388,8 @@ exports.runDotnet = runDotnet;
 exports.buildRestoreArgs = buildRestoreArgs;
 exports.buildBuildArgs = buildBuildArgs;
 exports.buildPackArgs = buildPackArgs;
+exports.buildNewConsumerArgs = buildNewConsumerArgs;
+exports.buildAddPackageArgs = buildAddPackageArgs;
 const exec = __importStar(__nccwpck_require__(5236));
 async function runDotnet(args, cwd) {
     let stdout = "";
@@ -40429,6 +40431,121 @@ function buildPackArgs(project, configuration, outputDirectory, alreadyRestored,
         args.push("--no-restore");
     }
     return args;
+}
+function buildNewConsumerArgs(projectType, projectName, outputDirectory, targetFramework) {
+    return [
+        "new",
+        projectType,
+        "--name",
+        projectName,
+        "--output",
+        outputDirectory,
+        "--framework",
+        targetFramework,
+    ];
+}
+function buildAddPackageArgs(project, packageId, version, localFeedDirectory) {
+    return [
+        "add",
+        project,
+        "package",
+        packageId,
+        "--version",
+        version,
+        "--source",
+        localFeedDirectory,
+        "--no-restore",
+    ];
+}
+
+
+/***/ }),
+
+/***/ 81:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runGeneratedConsumers = runGeneratedConsumers;
+const fs = __importStar(__nccwpck_require__(1455));
+const os = __importStar(__nccwpck_require__(8161));
+const path = __importStar(__nccwpck_require__(6760));
+const dotnet_1 = __nccwpck_require__(2797);
+function safeName(value) {
+    return value.replace(/[^A-Za-z0-9_]/g, "_");
+}
+function generatedConsumerProjectName(targetFramework) {
+    return `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
+}
+async function runRequiredDotnetCommand(args, cwd, failureMessage) {
+    const result = await (0, dotnet_1.runDotnet)(args, cwd);
+    if (result.exitCode !== 0) {
+        throw new Error(`${failureMessage}\n\n${result.stdout}\n${result.stderr}`);
+    }
+}
+async function createGeneratedConsumer(targetFramework, projectType, workspaceDirectory, localFeedDirectory, packages, logger) {
+    const projectName = generatedConsumerProjectName(targetFramework);
+    const projectDirectory = path.join(workspaceDirectory, targetFramework);
+    const projectPath = path.join(projectDirectory, `${projectName}.csproj`);
+    logger.info(`Creating generated consumer for ${targetFramework}.`);
+    await runRequiredDotnetCommand((0, dotnet_1.buildNewConsumerArgs)(projectType, projectName, projectDirectory, targetFramework), workspaceDirectory, `dotnet new failed for generated consumer ${targetFramework}.`);
+    for (const packageFile of packages) {
+        logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
+        await runRequiredDotnetCommand((0, dotnet_1.buildAddPackageArgs)(projectPath, packageFile.id, packageFile.version, localFeedDirectory), workspaceDirectory, `dotnet add package failed for ${packageFile.id} ${packageFile.version} in generated consumer ${targetFramework}.`);
+    }
+    return {
+        targetFramework,
+        projectType,
+        projectPath,
+        packagesInstalled: packages,
+    };
+}
+async function runGeneratedConsumers(targetFrameworks, projectType, localFeedDirectory, packages, logger) {
+    const workspaceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "dotnet-package-smoke-consumers-"));
+    try {
+        const results = [];
+        for (const targetFramework of targetFrameworks) {
+            results.push(await createGeneratedConsumer(targetFramework, projectType, workspaceDirectory, localFeedDirectory, packages, logger));
+        }
+        return results;
+    }
+    finally {
+        await fs.rm(workspaceDirectory, { recursive: true, force: true });
+    }
 }
 
 
@@ -40556,6 +40673,7 @@ async function main() {
     });
     core.setOutput("packages-packed", result.packages.length.toString());
     core.setOutput("local-feed-directory", result.localFeedDirectory);
+    core.setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
 }
 main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -40609,6 +40727,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseListInput = parseListInput;
 exports.parseBooleanInput = parseBooleanInput;
+exports.parseConsumerProjectType = parseConsumerProjectType;
 exports.getInputs = getInputs;
 const core = __importStar(__nccwpck_require__(7484));
 const node_path_1 = __importDefault(__nccwpck_require__(6760));
@@ -40631,6 +40750,16 @@ function parseBooleanInput(value, inputName, defaultValue) {
     }
     throw new Error(`Input '${inputName}' must be a boolean value, but received '${value}'.`);
 }
+function parseConsumerProjectType(value) {
+    const normalized = value.trim().toLowerCase();
+    if (normalized.length === 0 || normalized === "classlib") {
+        return "classlib";
+    }
+    if (normalized === "console") {
+        return "console";
+    }
+    throw new Error("Input 'consumer-project-type' must be one of: classlib, console.");
+}
 function getInputs() {
     const packageProjects = parseListInput(core.getInput("package-projects", { required: true }));
     const workingDirectoryInput = core.getInput("working-directory") || ".";
@@ -40641,6 +40770,8 @@ function getInputs() {
     return {
         packageProjects,
         generatedConsumers,
+        consumerTargetFrameworks: parseListInput(core.getInput("consumer-target-frameworks") || "net8.0"),
+        consumerProjectType: parseConsumerProjectType(core.getInput("consumer-project-type")),
         workingDirectory: node_path_1.default.resolve(workingDirectoryInput),
         configuration: core.getInput("configuration") || "Release",
         artifactsDirectory: core.getInput("artifacts-directory") || ".dotnet-package-smoke/artifacts",
@@ -40812,6 +40943,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runPackageSmoke = runPackageSmoke;
 const path = __importStar(__nccwpck_require__(6760));
 const dotnet_1 = __nccwpck_require__(2797);
+const generatedConsumers_1 = __nccwpck_require__(81);
 const glob_1 = __nccwpck_require__(5601);
 const localFeed_1 = __nccwpck_require__(608);
 const packages_1 = __nccwpck_require__(1282);
@@ -40860,9 +40992,13 @@ async function runPackageSmoke(inputs, logger) {
     }
     await (0, localFeed_1.copyPackagesToLocalFeed)(packages, localFeedDirectory);
     logger.info(`Local NuGet feed: ${localFeedDirectory}`);
+    const generatedConsumers = inputs.generatedConsumers
+        ? await (0, generatedConsumers_1.runGeneratedConsumers)(inputs.consumerTargetFrameworks, inputs.consumerProjectType, localFeedDirectory, packages, logger)
+        : [];
     return {
         packages,
         packageProjects,
+        generatedConsumers,
         artifactsDirectory,
         localFeedDirectory,
     };
@@ -41101,6 +41237,14 @@ module.exports = require("node:http2");
 
 "use strict";
 module.exports = require("node:net");
+
+/***/ }),
+
+/***/ 8161:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:os");
 
 /***/ }),
 

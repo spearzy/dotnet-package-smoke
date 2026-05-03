@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+    buildAddPackageArgs,
     buildBuildArgs,
+    buildNewConsumerArgs,
     buildPackArgs,
     buildRestoreArgs,
 } from "../src/dotnet";
@@ -70,6 +72,47 @@ describe("dotnet argument builders", () => {
             "Release",
             "--output",
             "/tmp/artifacts",
+            "--no-restore",
+        ]);
+    });
+
+    it("builds generated consumer project args", () => {
+        expect(
+            buildNewConsumerArgs(
+                "classlib",
+                "DotnetPackageSmokeConsumer_net8_0",
+                "/tmp/consumer",
+                "net8.0",
+            ),
+        ).toEqual([
+            "new",
+            "classlib",
+            "--name",
+            "DotnetPackageSmokeConsumer_net8_0",
+            "--output",
+            "/tmp/consumer",
+            "--framework",
+            "net8.0",
+        ]);
+    });
+
+    it("builds add package args using the local feed", () => {
+        expect(
+            buildAddPackageArgs(
+                "/tmp/consumer/Consumer.csproj",
+                "MyLibrary",
+                "1.2.3",
+                "/tmp/feed",
+            ),
+        ).toEqual([
+            "add",
+            "/tmp/consumer/Consumer.csproj",
+            "package",
+            "MyLibrary",
+            "--version",
+            "1.2.3",
+            "--source",
+            "/tmp/feed",
             "--no-restore",
         ]);
     });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBooleanInput, parseListInput } from "../src/inputs";
+import { parseBooleanInput, parseConsumerProjectType, parseListInput } from "../src/inputs";
 
 describe("parseListInput", () => {
     it("parses a single value", () => {
@@ -68,5 +68,22 @@ describe("parseBooleanInput", () => {
         expect(() =>
             parseBooleanInput("maybe", "generated-consumers", true),
         ).toThrow("Input 'generated-consumers' must be a boolean value");
+    });
+});
+
+describe("parseConsumerProjectType", () => {
+    it("uses classlib by default", () => {
+        expect(parseConsumerProjectType("")).toBe("classlib");
+    });
+
+    it("parses supported project types", () => {
+        expect(parseConsumerProjectType("classlib")).toBe("classlib");
+        expect(parseConsumerProjectType("console")).toBe("console");
+    });
+
+    it("rejects unsupported project types", () => {
+        expect(() => parseConsumerProjectType("web")).toThrow(
+            "Input 'consumer-project-type' must be one of: classlib, console.",
+        );
     });
 });

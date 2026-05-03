@@ -1,4 +1,5 @@
 import * as exec from "@actions/exec";
+import { ConsumerProjectType } from "./inputs";
 
 export interface CommandResult {
     exitCode: number;
@@ -66,3 +67,39 @@ export function buildPackArgs(
     return args;
 }
 
+export function buildNewConsumerArgs(
+    projectType: ConsumerProjectType,
+    projectName: string,
+    outputDirectory: string,
+    targetFramework: string,
+): string[] {
+    return [
+        "new",
+        projectType,
+        "--name",
+        projectName,
+        "--output",
+        outputDirectory,
+        "--framework",
+        targetFramework,
+    ];
+}
+
+export function buildAddPackageArgs(
+    project: string,
+    packageId: string,
+    version: string,
+    localFeedDirectory: string,
+): string[] {
+    return [
+        "add",
+        project,
+        "package",
+        packageId,
+        "--version",
+        version,
+        "--source",
+        localFeedDirectory,
+        "--no-restore",
+    ];
+}

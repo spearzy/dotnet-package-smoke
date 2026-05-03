@@ -5,18 +5,17 @@ import {
     buildRestoreArgs,
     runDotnet,
 } from "./dotnet";
+import { GeneratedConsumerResult, runGeneratedConsumers } from "./generatedConsumers";
 import { resolveProjectGlobs } from "./glob";
 import { ActionInputs } from "./inputs";
+import { Logger } from "./logger";
 import { cleanLocalFeed, copyPackagesToLocalFeed } from "./localFeed";
 import { cleanPackageFiles, findPackageFiles, PackageFile } from "./packages";
-
-export interface Logger {
-    info(message: string): void;
-}
 
 export interface PackageSmokeResult {
     packages: PackageFile[];
     packageProjects: string[];
+    generatedConsumers: GeneratedConsumerResult[];
     artifactsDirectory: string;
     localFeedDirectory: string;
 }
@@ -130,9 +129,20 @@ export async function runPackageSmoke(
     await copyPackagesToLocalFeed(packages, localFeedDirectory);
     logger.info(`Local NuGet feed: ${localFeedDirectory}`);
 
+    const generatedConsumers = inputs.generatedConsumers
+        ? await runGeneratedConsumers(
+            inputs.consumerTargetFrameworks,
+            inputs.consumerProjectType,
+            localFeedDirectory,
+            packages,
+            logger,
+        )
+        : [];
+
     return {
         packages,
         packageProjects,
+        generatedConsumers,
         artifactsDirectory,
         localFeedDirectory,
     };

@@ -1,9 +1,13 @@
 import * as core from "@actions/core";
 import path from "node:path";
 
+export type ConsumerProjectType = "classlib" | "console";
+
 export interface ActionInputs {
     packageProjects: string[];
     generatedConsumers: boolean;
+    consumerTargetFrameworks: string[];
+    consumerProjectType: ConsumerProjectType;
     workingDirectory: string;
     configuration: string;
     artifactsDirectory: string;
@@ -43,6 +47,20 @@ export function parseBooleanInput(
     );
 }
 
+export function parseConsumerProjectType(value: string): ConsumerProjectType {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized.length === 0 || normalized === "classlib") {
+        return "classlib";
+    }
+
+    if (normalized === "console") {
+        return "console";
+    }
+
+    throw new Error("Input 'consumer-project-type' must be one of: classlib, console.");
+}
+
 export function getInputs(): ActionInputs {
     const packageProjects = parseListInput(core.getInput("package-projects", { required: true }));
     const workingDirectoryInput = core.getInput("working-directory") || ".";
@@ -57,6 +75,8 @@ export function getInputs(): ActionInputs {
     return {
         packageProjects,
         generatedConsumers,
+        consumerTargetFrameworks: parseListInput(core.getInput("consumer-target-frameworks") || "net8.0"),
+        consumerProjectType: parseConsumerProjectType(core.getInput("consumer-project-type")),
         workingDirectory: path.resolve(workingDirectoryInput),
         configuration: core.getInput("configuration") || "Release",
         artifactsDirectory:
