@@ -1,14 +1,15 @@
 import * as core from "@actions/core";
-import { getInputs } from "./inputs";
-import { resolveProjectGlobs } from "./glob";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { getInputs } from "./inputs";
+import { resolveProjectGlobs } from "./glob";
 import {
     buildBuildArgs,
     buildPackArgs,
     buildRestoreArgs,
     runDotnet,
 } from "./dotnet";
+import { findPackageFiles } from "./packages";
 
 function resolveOutputDirectory(
     workingDirectory: string,
@@ -43,12 +44,15 @@ async function runRequiredDotnetCommand(
     }
 }
 
-
 async function main(): Promise<void> {
     const inputs = getInputs();
 
     core.info("dotnet-package-smoke is running.");
     core.info(`Generated consumers: ${inputs.generatedConsumers}`);
+    core.info(`Configuration: ${inputs.configuration}`);
+    core.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
+    core.info(`Restore before pack: ${inputs.restoreBeforePack}`);
+    core.info(`Build before pack: ${inputs.buildBeforePack}`);
 
     const packageProjects = await resolveProjectGlobs(
         inputs.packageProjects,
@@ -95,29 +99,20 @@ async function main(): Promise<void> {
         );
     }
 
-    core.info(`Packages written to: ${artifactsDirectory}`);
+    const packages = await findPackageFiles(artifactsDirectory);
 
-
-    for (const project of packageProjects) {
-        core.info(`Resolved package project: ${project}`);
+    if (packages.length === 0) {
+        throw new Error(
+            `dotnet pack completed, but no .nupkg files were found in ${artifactsDirectory}.`,
+        );
     }
 
-    const dotnetInfo = await runDotnet(["--info"], inputs.workingDirectory);
-
-    if (dotnetInfo.exitCode !== 0) {
-        throw new Error("dotnet --info failed. Make sure the .NET SDK is installed.");
+    for (const packageFile of packages) {
+        core.info(`Package created: ${packageFile.path}`);
     }
 
-    core.info("dotnet SDK is available.");
-    core.info(`Configuration: ${inputs.configuration}`);
-    core.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
-    core.info(`Restore before pack: ${inputs.restoreBeforePack}`);
-    core.info(`Build before pack: ${inputs.buildBeforePack}`);
-
-    core.setOutput("packages-packed", "0");
+    core.setOutput("packages-packed", packages.length.toString());
 }
-
-
 
 main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);

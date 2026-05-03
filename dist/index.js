@@ -37256,11 +37256,12 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
-const inputs_1 = __nccwpck_require__(8422);
-const glob_1 = __nccwpck_require__(5601);
 const fs = __importStar(__nccwpck_require__(1455));
 const path = __importStar(__nccwpck_require__(6760));
+const inputs_1 = __nccwpck_require__(8422);
+const glob_1 = __nccwpck_require__(5601);
 const dotnet_1 = __nccwpck_require__(2797);
+const packages_1 = __nccwpck_require__(1282);
 function resolveOutputDirectory(workingDirectory, outputDirectory) {
     return path.isAbsolute(outputDirectory)
         ? outputDirectory
@@ -37283,6 +37284,10 @@ async function main() {
     const inputs = (0, inputs_1.getInputs)();
     core.info("dotnet-package-smoke is running.");
     core.info(`Generated consumers: ${inputs.generatedConsumers}`);
+    core.info(`Configuration: ${inputs.configuration}`);
+    core.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
+    core.info(`Restore before pack: ${inputs.restoreBeforePack}`);
+    core.info(`Build before pack: ${inputs.buildBeforePack}`);
     const packageProjects = await (0, glob_1.resolveProjectGlobs)(inputs.packageProjects, inputs.workingDirectory, "package-projects");
     const artifactsDirectory = resolveOutputDirectory(inputs.workingDirectory, inputs.artifactsDirectory);
     await cleanPackageFiles(artifactsDirectory);
@@ -37296,20 +37301,14 @@ async function main() {
         }
         await runRequiredDotnetCommand((0, dotnet_1.buildPackArgs)(project, inputs.configuration, artifactsDirectory, inputs.restoreBeforePack, inputs.buildBeforePack), inputs.workingDirectory, `dotnet pack failed for ${project}.`);
     }
-    core.info(`Packages written to: ${artifactsDirectory}`);
-    for (const project of packageProjects) {
-        core.info(`Resolved package project: ${project}`);
+    const packages = await (0, packages_1.findPackageFiles)(artifactsDirectory);
+    if (packages.length === 0) {
+        throw new Error(`dotnet pack completed, but no .nupkg files were found in ${artifactsDirectory}.`);
     }
-    const dotnetInfo = await (0, dotnet_1.runDotnet)(["--info"], inputs.workingDirectory);
-    if (dotnetInfo.exitCode !== 0) {
-        throw new Error("dotnet --info failed. Make sure the .NET SDK is installed.");
+    for (const packageFile of packages) {
+        core.info(`Package created: ${packageFile.path}`);
     }
-    core.info("dotnet SDK is available.");
-    core.info(`Configuration: ${inputs.configuration}`);
-    core.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
-    core.info(`Restore before pack: ${inputs.restoreBeforePack}`);
-    core.info(`Build before pack: ${inputs.buildBeforePack}`);
-    core.setOutput("packages-packed", "0");
+    core.setOutput("packages-packed", packages.length.toString());
 }
 main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -37401,6 +37400,64 @@ function getInputs() {
         restoreBeforePack: parseBooleanInput(core.getInput("restore-before-pack"), "restore-before-pack", true),
         buildBeforePack: parseBooleanInput(core.getInput("build-before-pack"), "build-before-pack", true),
     };
+}
+
+
+/***/ }),
+
+/***/ 1282:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.findPackageFiles = findPackageFiles;
+const fs = __importStar(__nccwpck_require__(1455));
+const path = __importStar(__nccwpck_require__(6760));
+async function findPackageFiles(artifactsDirectory) {
+    const entries = await fs.readdir(artifactsDirectory, { withFileTypes: true });
+    return entries
+        .filter((entry) => entry.isFile())
+        .filter((entry) => entry.name.toLowerCase().endsWith(".nupkg"))
+        .filter((entry) => !entry.name.toLowerCase().endsWith(".snupkg"))
+        .map((entry) => ({
+        name: entry.name,
+        path: path.join(artifactsDirectory, entry.name),
+    }))
+        .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 
