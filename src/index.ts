@@ -26,7 +26,10 @@ async function main(): Promise<void> {
     }
 
     core.info("dotnet SDK is available.");
-
+    core.info(`Configuration: ${inputs.configuration}`);
+    core.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
+    core.info(`Restore before pack: ${inputs.restoreBeforePack}`);
+    core.info(`Build before pack: ${inputs.buildBeforePack}`);
 
     core.setOutput("packages-packed", "0");
 }

@@ -16,6 +16,25 @@ inputs:
     description: Directory used to resolve project paths and globs.
     required: false
     default: "."
+  configuration:
+    description: .NET build configuration.
+    required: false
+    default: Release
+
+  artifacts-directory:
+    description: Directory where packed NuGet package artifacts are written.
+    required: false
+    default: .dotnet-package-smoke/artifacts
+
+  restore-before-pack:
+    description: Run dotnet restore before packing.
+    required: false
+    default: "true"
+
+  build-before-pack:
+    description: Run dotnet build before packing.
+    required: false
+    default: "true"
 
 outputs:
   packages-packed:

@@ -37265,6 +37265,10 @@ async function main() {
         throw new Error("dotnet --info failed. Make sure the .NET SDK is installed.");
     }
     core.info("dotnet SDK is available.");
+    core.info(`Configuration: ${inputs.configuration}`);
+    core.info(`Artifacts directory: ${inputs.artifactsDirectory}`);
+    core.info(`Restore before pack: ${inputs.restoreBeforePack}`);
+    core.info(`Build before pack: ${inputs.buildBeforePack}`);
     core.setOutput("packages-packed", "0");
 }
 main().catch((error) => {
@@ -37352,6 +37356,10 @@ function getInputs() {
         packageProjects,
         generatedConsumers,
         workingDirectory: node_path_1.default.resolve(workingDirectoryInput),
+        configuration: core.getInput("configuration") || "Release",
+        artifactsDirectory: core.getInput("artifacts-directory") || ".dotnet-package-smoke/artifacts",
+        restoreBeforePack: parseBooleanInput(core.getInput("restore-before-pack"), "restore-before-pack", true),
+        buildBeforePack: parseBooleanInput(core.getInput("build-before-pack"), "build-before-pack", true),
     };
 }
 

@@ -5,6 +5,11 @@ export interface ActionInputs {
     packageProjects: string[];
     generatedConsumers: boolean;
     workingDirectory: string;
+    configuration: string;
+    artifactsDirectory: string;
+    restoreBeforePack: boolean;
+    buildBeforePack: boolean;
+
 }
 
 export function parseListInput(value: string): string[] {
@@ -53,5 +58,19 @@ export function getInputs(): ActionInputs {
         packageProjects,
         generatedConsumers,
         workingDirectory: path.resolve(workingDirectoryInput),
+        configuration: core.getInput("configuration") || "Release",
+        artifactsDirectory:
+            core.getInput("artifacts-directory") || ".dotnet-package-smoke/artifacts",
+        restoreBeforePack: parseBooleanInput(
+            core.getInput("restore-before-pack"),
+            "restore-before-pack",
+            true,
+        ),
+        buildBeforePack: parseBooleanInput(
+            core.getInput("build-before-pack"),
+            "build-before-pack",
+            true,
+        ),
+
     };
 }
