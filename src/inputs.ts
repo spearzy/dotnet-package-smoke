@@ -17,6 +17,8 @@ export interface ActionInputs {
     restoreBeforePack: boolean;
     buildBeforePack: boolean;
     packArguments: string[];
+    smokeRestoreArguments: string[];
+    smokeTestArguments: string[];
     retainOnFailure: boolean;
     localFeedDirectory: string;
 }
@@ -192,6 +194,14 @@ export function getInputs(): ActionInputs {
         packArguments: parseArgumentInput(
             core.getInput("pack-arguments"),
             "pack-arguments",
+        ),
+        smokeRestoreArguments: parseArgumentInput(
+            core.getInput("smoke-restore-arguments"),
+            "smoke-restore-arguments",
+        ),
+        smokeTestArguments: parseArgumentInput(
+            core.getInput("smoke-test-arguments"),
+            "smoke-test-arguments",
         ),
         retainOnFailure: parseBooleanInput(
             core.getInput("retain-on-failure"),

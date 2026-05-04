@@ -159,6 +159,8 @@ export async function runPackageSmoke(
             inputs.workingDirectory,
             inputs.configuration,
             localFeedDirectory,
+            inputs.smokeRestoreArguments,
+            inputs.smokeTestArguments,
             inputs.retainOnFailure,
             logger,
         )

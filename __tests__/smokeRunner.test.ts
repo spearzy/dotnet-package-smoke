@@ -33,6 +33,8 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            [],
+            [],
             false,
             { info: () => undefined },
         );
@@ -60,6 +62,8 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            [],
+            [],
             false,
             { info: () => undefined },
         );
@@ -87,6 +91,8 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            [],
+            [],
             false,
             { info: () => undefined },
         );
@@ -112,6 +118,8 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            [],
+            [],
             false,
             { info: () => undefined },
         );
@@ -120,6 +128,39 @@ describe("runSmokeProjects", () => {
 
         expect(firstCallArgs).toContainEqual(expect.stringContaining("-p:BaseOutputPath="));
         expect(firstCallArgs).toContainEqual(expect.stringContaining("-p:BaseIntermediateOutputPath="));
+    });
+
+    it("passes smoke restore and test arguments to the correct dotnet commands", async () => {
+        mockedRunDotnet.mockResolvedValue({
+            exitCode: 0,
+            stdout: "",
+            stderr: "",
+        });
+
+        await runSmokeProjects(
+            ["/repo/smoke/MyLibrary.Tests/MyLibrary.Tests.csproj"],
+            "/repo",
+            "Release",
+            "/tmp/feed",
+            ["--disable-parallel", "-p:RestoreLockedMode=true"],
+            ["--filter", "Category=Smoke", "--logger", "trx"],
+            false,
+            { info: () => undefined },
+        );
+
+        const restoreArgs = mockedRunDotnet.mock.calls[0][0];
+        const testArgs = mockedRunDotnet.mock.calls[1][0];
+
+        expect(restoreArgs).toContain("--disable-parallel");
+        expect(restoreArgs).toContain("-p:RestoreLockedMode=true");
+        expect(restoreArgs).not.toContain("--filter");
+        expect(restoreArgs).not.toContain("Category=Smoke");
+        expect(testArgs).toContain("--filter");
+        expect(testArgs).toContain("Category=Smoke");
+        expect(testArgs).toContain("--logger");
+        expect(testArgs).toContain("trx");
+        expect(testArgs).not.toContain("--disable-parallel");
+        expect(testArgs).not.toContain("-p:RestoreLockedMode=true");
     });
 
     it("retains the smoke project workspace when requested and a check fails", async () => {
@@ -134,6 +175,8 @@ describe("runSmokeProjects", () => {
             "/repo",
             "Release",
             "/tmp/feed",
+            [],
+            [],
             true,
             { info: () => undefined },
         );

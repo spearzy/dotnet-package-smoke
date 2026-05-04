@@ -56,6 +56,24 @@ With optional smoke projects:
 
 Smoke projects should already contain the `PackageReference` entries they need. The action restores and tests them against the temporary local feed; it does not edit those project files.
 
+With extra smoke project restore and test arguments:
+
+```yaml
+- uses: spearzy/dotnet-package-smoke@v1
+  with:
+    package-projects: |
+      src/MyLibrary/MyLibrary.csproj
+    smoke-projects: |
+      smoke/**/*.csproj
+    smoke-restore-arguments: >-
+      --disable-parallel
+      -p:RestoreLockedMode=true
+    smoke-test-arguments: >-
+      --filter Category=Smoke
+```
+
+`smoke-restore-arguments` is passed only to `dotnet restore` for smoke projects. `smoke-test-arguments` is passed only to `dotnet test`.
+
 With extra `dotnet pack` arguments:
 
 ```yaml
@@ -115,6 +133,8 @@ At least one validation mode must be enabled: either `generated-consumers: true`
 | `restore-before-pack` | No | `true` | Run `dotnet restore` before packing. |
 | `build-before-pack` | No | `true` | Run `dotnet build` before packing. |
 | `pack-arguments` | No | | Additional arguments passed to `dotnet pack`. Supports quoted values. |
+| `smoke-restore-arguments` | No | | Additional arguments passed to `dotnet restore` for smoke projects. Supports quoted values. |
+| `smoke-test-arguments` | No | | Additional arguments passed to `dotnet test` for smoke projects. Supports quoted values. |
 | `retain-on-failure` | No | `false` | Keep failed generated consumer and smoke project temporary workspaces for debugging. |
 
 ## Outputs
@@ -184,7 +204,6 @@ The project focuses on proving that packed NuGet packages can be consumed by cle
 
 ### Near term
 
-- Add `smoke-arguments` for passing restore options to smoke projects.
 - Expand workflow examples for package families and smoke project validation.
 
 ### Later
