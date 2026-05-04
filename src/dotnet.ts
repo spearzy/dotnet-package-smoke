@@ -1,5 +1,5 @@
 import * as exec from "@actions/exec";
-import { ConsumerProjectType } from "./inputs";
+import { ConsumerProjectType } from "./inputs.js";
 
 export interface CommandResult {
     exitCode: number;

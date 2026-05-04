@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { PackageFile } from "./packages";
+import { PackageFile } from "./packages.js";
 
 export async function cleanLocalFeed(directory: string): Promise<void> {
     await fs.mkdir(directory, { recursive: true });

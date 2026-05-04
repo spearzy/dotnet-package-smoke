@@ -8,11 +8,11 @@ import {
     buildRestoreArgs,
     CommandResult,
     runDotnet,
-} from "./dotnet";
-import { ConsumerProjectType } from "./inputs";
-import { Logger } from "./logger";
-import { createNuGetConfig } from "./nugetConfig";
-import { PackageFile } from "./packages";
+} from "./dotnet.js";
+import { ConsumerProjectType } from "./inputs.js";
+import { Logger } from "./logger.js";
+import { createNuGetConfig } from "./nugetConfig.js";
+import { PackageFile } from "./packages.js";
 
 export type GeneratedConsumerFailureStage = "create" | "install" | "restore" | "build";
 

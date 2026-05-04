@@ -1,4 +1,4 @@
-import { PackageSmokeResult } from "./packageSmoke";
+import { PackageSmokeResult } from "./packageSmoke.js";
 
 function icon(value: boolean): string {
     return value ? "✅" : "❌";
