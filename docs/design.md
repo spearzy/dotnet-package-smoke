@@ -32,6 +32,13 @@ They prove that produced packages:
 
 Generated consumers do not prove that the package API is useful or behaves correctly. They are a packaging and consumption check.
 
+Generated consumers can run in two package modes:
+
+- `combined` installs all produced packages into the same generated consumer project.
+- `per-package` creates a separate generated consumer check for each produced package.
+
+Use `combined` when the packages are intended to be consumed together. Use `per-package` when each package should be independently installable.
+
 ## Smoke Projects
 
 Smoke projects are optional user-provided projects.
@@ -39,6 +46,13 @@ Smoke projects are optional user-provided projects.
 They prove deeper behaviour when the repository already contains real package usage tests. Smoke projects should already reference the package IDs they want to test.
 
 The action restores and tests smoke projects against the temporary local feed. It does not edit smoke project files or add package references for the user.
+
+Extra smoke project command arguments are intentionally split by command:
+
+- `smoke-restore-arguments` is appended only to `dotnet restore`.
+- `smoke-test-arguments` is appended only to `dotnet test`.
+
+This avoids a single ambiguous argument input where restore-only arguments could accidentally be passed to test, or test-only arguments could accidentally be passed to restore.
 
 ## Local Feed
 
@@ -71,6 +85,8 @@ Smoke project failures record one of:
 - `test`
 
 The GitHub job summary starts with a short result overview, then includes package, generated consumer, smoke project, path, retained workspace, and failure detail sections.
+
+Generated consumer failures also include an error type and, when the action can infer one, useful error details. These classifications are intended to make common package, dependency, target framework, restore source, and build failures easier to scan. The raw command output remains included for diagnosis.
 
 ## Deliberately Out Of Scope For v1
 

@@ -69,11 +69,32 @@ Most users only need `package-projects`.
 | `generated-consumers` | You want to disable generated consumers and only run smoke projects. |
 | `consumer-target-frameworks` | You want generated consumers for more than one target framework. |
 | `consumer-project-type` | You want generated consumers to use `console` instead of `classlib`. |
+| `consumer-mode` | You want to choose whether generated consumers install produced packages together or one package at a time. |
 | `smoke-projects` | You have real smoke test projects that already reference the package IDs under test. |
+| `smoke-restore-arguments` | You need extra `dotnet restore` arguments for smoke projects. |
+| `smoke-test-arguments` | You need extra `dotnet test` arguments for smoke projects. |
 | `configuration` | You need a build configuration other than `Release`. |
 | `working-directory` | Your project paths should resolve from a repository subdirectory. |
+| `artifacts-directory` | You need packed `.nupkg` files written to a specific directory. |
+| `local-feed-directory` | You need the temporary local NuGet feed created in a specific directory. |
+| `restore-before-pack` | You want to skip the explicit restore step before packing. |
+| `build-before-pack` | You want to skip the explicit build step before packing. |
 | `pack-arguments` | You need extra `dotnet pack` properties or flags. |
 | `retain-on-failure` | You need to inspect failed temporary workspaces. |
+
+## Output Summary
+
+| Output | Use When |
+| --- | --- |
+| `packages-packed` | You need the number of produced package files. |
+| `packages-json` | You want package metadata for downstream workflow steps. |
+| `local-feed-directory` | You need the resolved local feed path for later workflow steps. |
+| `generated-consumers-tested` | You need the generated consumer check count. |
+| `generated-consumers-passed` | You need the generated consumer pass count. |
+| `generated-consumers-failed` | You need the generated consumer failure count. |
+| `smoke-projects-tested` | You need the smoke project check count. |
+| `smoke-projects-passed` | You need the smoke project pass count. |
+| `smoke-projects-failed` | You need the smoke project failure count. |
 
 ## Release Checklist
 
