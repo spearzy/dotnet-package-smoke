@@ -22473,6 +22473,78 @@ function info(message) {
   process.stdout.write(message + os5.EOL);
 }
 
+// src/failureClassification.ts
+function generatedConsumerFailureKindLabel(kind) {
+  switch (kind) {
+    case "package-not-found":
+      return "Package not found";
+    case "dependency-not-found":
+      return "Dependency not found";
+    case "target-framework-incompatible":
+      return "Target framework incompatible";
+    case "restore-source-unavailable":
+      return "Restore source unavailable";
+    case "build-error":
+      return "Build error";
+    case "error":
+    case null:
+      return "Error";
+  }
+}
+function classifyGeneratedConsumerFailure(stage, output, packages) {
+  if (isTargetFrameworkIncompatible(output)) {
+    return {
+      kind: "target-framework-incompatible",
+      detail: "The package is not compatible with the generated consumer target framework."
+    };
+  }
+  if (isRestoreSourceUnavailable(output)) {
+    return {
+      kind: "restore-source-unavailable",
+      detail: "A package source could not be reached during restore."
+    };
+  }
+  const missingPackageId = findMissingPackageId(output);
+  if (missingPackageId !== null) {
+    if (stage === "install" || isProducedPackage(missingPackageId, packages)) {
+      return {
+        kind: "package-not-found",
+        detail: `The produced package '${missingPackageId}' could not be found in the local feed.`
+      };
+    }
+    return {
+      kind: "dependency-not-found",
+      detail: `The package dependency '${missingPackageId}' could not be found during restore.`
+    };
+  }
+  if (stage === "build") {
+    return {
+      kind: "build-error",
+      detail: "The generated consumer restored successfully but failed to build."
+    };
+  }
+  return {
+    kind: "error",
+    detail: null
+  };
+}
+function isProducedPackage(packageId, packages) {
+  return packages.some(
+    (packageFile) => packageFile.id.toLowerCase() === packageId.toLowerCase()
+  );
+}
+function isTargetFrameworkIncompatible(output) {
+  return /NU1202\b/i.test(output) || /not compatible with/i.test(output);
+}
+function isRestoreSourceUnavailable(output) {
+  return /NU1301\b/i.test(output) || /NU1801\b/i.test(output) || /Unable to load the service index/i.test(output);
+}
+function findMissingPackageId(output) {
+  const match3 = output.match(/NU110[12]:\s+Unable to find package\s+([^\r\n]+)/i);
+  const firstToken = match3?.[1].trim().split(/\s+/)[0];
+  return firstToken?.replace(/[.,;:]$/, "") ?? null;
+}
+
 // src/inputs.ts
 var import_node_path = __toESM(require("node:path"));
 function parseListInput(value) {
@@ -22765,6 +22837,21 @@ function commandOutput(result) {
   return `${result.stdout}
 ${result.stderr}`.trim();
 }
+function failedResult(resultBase, stage, output, state) {
+  const classification = classifyGeneratedConsumerFailure(
+    stage,
+    output,
+    resultBase.packagesInstalled
+  );
+  return {
+    ...resultBase,
+    ...state,
+    failureStage: stage,
+    failureKind: classification.kind,
+    failureDetail: classification.detail,
+    failureOutput: output
+  };
+}
 async function createGeneratedConsumer(targetFramework, projectType, consumerMode, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger) {
   const projectName = generatedConsumerProjectName(targetFramework, consumerMode, packages);
   const projectDirectory = generatedConsumerProjectDirectory(
@@ -22790,14 +22877,11 @@ async function createGeneratedConsumer(targetFramework, projectType, consumerMod
     workspaceDirectory
   );
   if (create2.exitCode !== 0) {
-    return {
-      ...resultBase,
+    return failedResult(resultBase, "create", commandOutput(create2), {
       installSucceeded: false,
       restoreSucceeded: false,
-      buildSucceeded: false,
-      failureStage: "create",
-      failureOutput: commandOutput(create2)
-    };
+      buildSucceeded: false
+    });
   }
   for (const packageFile of packages) {
     logger.info(
@@ -22808,14 +22892,11 @@ async function createGeneratedConsumer(targetFramework, projectType, consumerMod
       workspaceDirectory
     );
     if (add.exitCode !== 0) {
-      return {
-        ...resultBase,
+      return failedResult(resultBase, "install", commandOutput(add), {
         installSucceeded: false,
         restoreSucceeded: false,
-        buildSucceeded: false,
-        failureStage: "install",
-        failureOutput: commandOutput(add)
-      };
+        buildSucceeded: false
+      });
     }
   }
   logger.info(`Restoring generated consumer for ${targetFramework}.`);
@@ -22824,14 +22905,11 @@ async function createGeneratedConsumer(targetFramework, projectType, consumerMod
     workspaceDirectory
   );
   if (restore.exitCode !== 0) {
-    return {
-      ...resultBase,
+    return failedResult(resultBase, "restore", commandOutput(restore), {
       installSucceeded: true,
       restoreSucceeded: false,
-      buildSucceeded: false,
-      failureStage: "restore",
-      failureOutput: commandOutput(restore)
-    };
+      buildSucceeded: false
+    });
   }
   logger.info(`Building generated consumer for ${targetFramework}.`);
   const build = await runDotnet(
@@ -22839,14 +22917,11 @@ async function createGeneratedConsumer(targetFramework, projectType, consumerMod
     workspaceDirectory
   );
   if (build.exitCode !== 0) {
-    return {
-      ...resultBase,
+    return failedResult(resultBase, "build", commandOutput(build), {
       installSucceeded: true,
       restoreSucceeded: true,
-      buildSucceeded: false,
-      failureStage: "build",
-      failureOutput: commandOutput(build)
-    };
+      buildSucceeded: false
+    });
   }
   return {
     ...resultBase,
@@ -22854,6 +22929,8 @@ async function createGeneratedConsumer(targetFramework, projectType, consumerMod
     restoreSucceeded: true,
     buildSucceeded: true,
     failureStage: null,
+    failureKind: null,
+    failureDetail: null,
     failureOutput: ""
   };
 }
@@ -29744,8 +29821,8 @@ function createMarkdownSummary(result) {
   if (result.generatedConsumers.length === 0) {
     lines.push("Generated consumer checks were skipped.");
   } else {
-    lines.push("| Target Framework | Project Type | Packages | Install | Restore | Build | Failed Stage |");
-    lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+    lines.push("| Target Framework | Project Type | Packages | Install | Restore | Build | Failed Stage | Error Type |");
+    lines.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
     for (const consumer of result.generatedConsumers) {
       lines.push(
         `| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${tableValue(
@@ -29754,7 +29831,7 @@ function createMarkdownSummary(result) {
           consumer.installSucceeded
         )} | ${icon(consumer.restoreSucceeded)} | ${icon(
           consumer.buildSucceeded
-        )} | ${failureStage(consumer.failureStage)} |`
+        )} | ${failureStage(consumer.failureStage)} | ${consumer.failureStage === null ? "" : generatedConsumerFailureKindLabel(consumer.failureKind)} |`
       );
     }
   }
@@ -29792,6 +29869,10 @@ function createMarkdownSummary(result) {
     for (const consumer of failedConsumers) {
       lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
       lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
+      lines.push(`Error type: ${generatedConsumerFailureKindLabel(consumer.failureKind)}`, "");
+      if (consumer.failureDetail !== null) {
+        lines.push(`Error details: ${consumer.failureDetail}`, "");
+      }
       if (consumer.retainedWorkspace !== null) {
         lines.push(`Retained workspace: ${consumer.retainedWorkspace}`, "");
       }
@@ -29834,7 +29915,8 @@ function generatedConsumerFailureMessage(consumers) {
   if (consumers.length === 1) {
     const consumer = consumers[0];
     const stage = consumer.failureStage ?? "unknown";
-    return `Generated consumer check failed for ${consumer.targetFramework}${generatedConsumerPackageLabel2(consumer)} during ${stage}.`;
+    const errorType = consumer.failureKind !== null && consumer.failureKind !== "error" ? `: ${generatedConsumerFailureKindLabel(consumer.failureKind)}` : "";
+    return `Generated consumer check failed for ${consumer.targetFramework}${generatedConsumerPackageLabel2(consumer)} during ${stage}${errorType}.`;
   }
   const failuresByStage = consumers.reduce((counts, consumer) => {
     const stage = consumer.failureStage ?? "unknown";

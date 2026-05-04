@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PackageSmokeResult } from "../src/packageSmoke";
+import type { PackageSmokeResult } from "../src/packageSmoke";
 
 function createResult(
     overrides: Partial<PackageSmokeResult> = {},
@@ -60,6 +60,8 @@ describe("createMarkdownSummary", () => {
                         restoreSucceeded: true,
                         buildSucceeded: true,
                         failureStage: null,
+                        failureKind: null,
+                        failureDetail: null,
                         failureOutput: "",
                         retainedWorkspace: null,
                     },
@@ -116,6 +118,8 @@ describe("createMarkdownSummary", () => {
                         restoreSucceeded: true,
                         buildSucceeded: true,
                         failureStage: null,
+                        failureKind: null,
+                        failureDetail: null,
                         failureOutput: "",
                         retainedWorkspace: null,
                     },
@@ -123,7 +127,7 @@ describe("createMarkdownSummary", () => {
             }),
         );
 
-        expect(summary).toContain("| net8.0 | classlib | MyLibrary 1.0.0 | ✅ | ✅ | ✅ |  |");
+        expect(summary).toContain("| net8.0 | classlib | MyLibrary 1.0.0 | ✅ | ✅ | ✅ |  |  |");
         expect(summary).not.toContain("## Failure Details");
     });
 
@@ -150,6 +154,8 @@ describe("createMarkdownSummary", () => {
                         restoreSucceeded: false,
                         buildSucceeded: false,
                         failureStage: "restore",
+                        failureKind: "package-not-found",
+                        failureDetail: "The produced package 'MyLibrary' could not be found in the local feed.",
                         failureOutput: "NU1101: Unable to find package MyLibrary",
                         retainedWorkspace: null,
                     },
@@ -157,8 +163,10 @@ describe("createMarkdownSummary", () => {
             }),
         );
 
-        expect(summary).toContain("| net8.0 | console | MyLibrary 1.0.0 | ✅ | ❌ | ❌ | restore |");
+        expect(summary).toContain("| net8.0 | console | MyLibrary 1.0.0 | ✅ | ❌ | ❌ | restore | Package not found |");
         expect(summary).toContain("Failed stage: restore");
+        expect(summary).toContain("Error type: Package not found");
+        expect(summary).toContain("Error details: The produced package 'MyLibrary' could not be found in the local feed.");
         expect(summary).toContain("## Failure Details");
         expect(summary).toContain("NU1101: Unable to find package MyLibrary");
     });
@@ -211,6 +219,8 @@ describe("createMarkdownSummary", () => {
                         restoreSucceeded: false,
                         buildSucceeded: false,
                         failureStage: "install",
+                        failureKind: "error",
+                        failureDetail: null,
                         failureOutput: "install failed",
                         retainedWorkspace: "/tmp/dotnet-package-smoke-consumers-123",
                     },
@@ -221,6 +231,8 @@ describe("createMarkdownSummary", () => {
         expect(summary).toContain("## Retained Workspaces");
         expect(summary).toContain("- /tmp/dotnet-package-smoke-consumers-123");
         expect(summary).toContain("Retained workspace: /tmp/dotnet-package-smoke-consumers-123");
+        expect(summary).toContain("Error type: Error");
+        expect(summary).not.toContain("Error details:");
     });
 
     it("shows failed counts in the overall result", async () => {
@@ -246,6 +258,8 @@ describe("createMarkdownSummary", () => {
                         restoreSucceeded: false,
                         buildSucceeded: false,
                         failureStage: "install",
+                        failureKind: "error",
+                        failureDetail: null,
                         failureOutput: "install failed",
                         retainedWorkspace: null,
                     },

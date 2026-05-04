@@ -9,12 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Add `packages-json` output for downstream workflow steps.
 - Add `consumer-mode` with `combined` and `per-package` generated consumer modes.
+- Add generated consumer error classification for common package, dependency, restore source, target framework, and build failures.
 
 ### Changed
 - Switch the action bundle from `ncc` to `esbuild` so current ESM-only GitHub Action Toolkit packages can be bundled.
 - Update runtime Action Toolkit dependencies and development test/build tooling.
 - Keep Dependabot major updates enabled for supported packages while retaining Node 24 type safety.
 - Stop generating and committing JavaScript source maps for the bundled action.
+- Show generated consumer `Error type` and useful `Error details` in the job summary.
 
 ### Fixed
 - Set the TypeScript root directory explicitly for newer TypeScript compatibility.

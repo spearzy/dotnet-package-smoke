@@ -9,10 +9,14 @@ import {
     CommandResult,
     runDotnet,
 } from "./dotnet.js";
+import {
+    classifyGeneratedConsumerFailure,
+    type GeneratedConsumerFailureKind,
+} from "./failureClassification.js";
 import type { ConsumerMode, ConsumerProjectType } from "./inputs.js";
 import { Logger } from "./logger.js";
 import { createNuGetConfig } from "./nugetConfig.js";
-import { PackageFile } from "./packages.js";
+import type { PackageFile } from "./packages.js";
 
 export type GeneratedConsumerFailureStage = "create" | "install" | "restore" | "build";
 
@@ -26,6 +30,8 @@ export interface GeneratedConsumerResult {
     restoreSucceeded: boolean;
     buildSucceeded: boolean;
     failureStage: GeneratedConsumerFailureStage | null;
+    failureKind: GeneratedConsumerFailureKind | null;
+    failureDetail: string | null;
     failureOutput: string;
     retainedWorkspace: string | null;
 }
@@ -87,6 +93,39 @@ function commandOutput(result: CommandResult): string {
     return `${result.stdout}\n${result.stderr}`.trim();
 }
 
+function failedResult(
+    resultBase: Pick<
+        GeneratedConsumerResult,
+        | "targetFramework"
+        | "projectType"
+        | "consumerMode"
+        | "projectPath"
+        | "packagesInstalled"
+        | "retainedWorkspace"
+    >,
+    stage: GeneratedConsumerFailureStage,
+    output: string,
+    state: Pick<
+        GeneratedConsumerResult,
+        "installSucceeded" | "restoreSucceeded" | "buildSucceeded"
+    >,
+): GeneratedConsumerResult {
+    const classification = classifyGeneratedConsumerFailure(
+        stage,
+        output,
+        resultBase.packagesInstalled,
+    );
+
+    return {
+        ...resultBase,
+        ...state,
+        failureStage: stage,
+        failureKind: classification.kind,
+        failureDetail: classification.detail,
+        failureOutput: output,
+    };
+}
+
 async function createGeneratedConsumer(
     targetFramework: string,
     projectType: ConsumerProjectType,
@@ -124,14 +163,11 @@ async function createGeneratedConsumer(
         workspaceDirectory,
     );
     if (create.exitCode !== 0) {
-        return {
-            ...resultBase,
+        return failedResult(resultBase, "create", commandOutput(create), {
             installSucceeded: false,
             restoreSucceeded: false,
             buildSucceeded: false,
-            failureStage: "create",
-            failureOutput: commandOutput(create),
-        };
+        });
     }
 
     for (const packageFile of packages) {
@@ -145,14 +181,11 @@ async function createGeneratedConsumer(
         );
 
         if (add.exitCode !== 0) {
-            return {
-                ...resultBase,
+            return failedResult(resultBase, "install", commandOutput(add), {
                 installSucceeded: false,
                 restoreSucceeded: false,
                 buildSucceeded: false,
-                failureStage: "install",
-                failureOutput: commandOutput(add),
-            };
+            });
         }
     }
 
@@ -162,14 +195,11 @@ async function createGeneratedConsumer(
         workspaceDirectory,
     );
     if (restore.exitCode !== 0) {
-        return {
-            ...resultBase,
+        return failedResult(resultBase, "restore", commandOutput(restore), {
             installSucceeded: true,
             restoreSucceeded: false,
             buildSucceeded: false,
-            failureStage: "restore",
-            failureOutput: commandOutput(restore),
-        };
+        });
     }
 
     logger.info(`Building generated consumer for ${targetFramework}.`);
@@ -178,14 +208,11 @@ async function createGeneratedConsumer(
         workspaceDirectory,
     );
     if (build.exitCode !== 0) {
-        return {
-            ...resultBase,
+        return failedResult(resultBase, "build", commandOutput(build), {
             installSucceeded: true,
             restoreSucceeded: true,
             buildSucceeded: false,
-            failureStage: "build",
-            failureOutput: commandOutput(build),
-        };
+        });
     }
 
     return {
@@ -194,6 +221,8 @@ async function createGeneratedConsumer(
         restoreSucceeded: true,
         buildSucceeded: true,
         failureStage: null,
+        failureKind: null,
+        failureDetail: null,
         failureOutput: "",
     };
 }
