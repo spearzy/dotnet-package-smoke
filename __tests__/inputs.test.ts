@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     parseArgumentInput,
     parseBooleanInput,
+    parseConsumerMode,
     parseConsumerProjectType,
     parseListInput,
 } from "../src/inputs";
@@ -146,6 +147,23 @@ describe("parseConsumerProjectType", () => {
     it("rejects unsupported project types", () => {
         expect(() => parseConsumerProjectType("web")).toThrow(
             "Input 'consumer-project-type' must be one of: classlib, console.",
+        );
+    });
+});
+
+describe("parseConsumerMode", () => {
+    it("uses combined by default", () => {
+        expect(parseConsumerMode("")).toBe("combined");
+    });
+
+    it("parses supported consumer modes", () => {
+        expect(parseConsumerMode("combined")).toBe("combined");
+        expect(parseConsumerMode("per-package")).toBe("per-package");
+    });
+
+    it("rejects unsupported consumer modes", () => {
+        expect(() => parseConsumerMode("both")).toThrow(
+            "Input 'consumer-mode' must be one of: combined, per-package.",
         );
     });
 });

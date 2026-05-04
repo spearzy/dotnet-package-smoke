@@ -47,7 +47,15 @@ describe("createMarkdownSummary", () => {
                         targetFramework: "net8.0",
                         projectType: "classlib",
                         projectPath: "/tmp/consumer/Consumer.csproj",
-                        packagesInstalled: [],
+                        consumerMode: "combined",
+                        packagesInstalled: [
+                            {
+                                name: "MyLibrary.1.0.0.nupkg",
+                                path: "/tmp/artifacts/MyLibrary.1.0.0.nupkg",
+                                id: "MyLibrary",
+                                version: "1.0.0",
+                            },
+                        ],
                         installSucceeded: true,
                         restoreSucceeded: true,
                         buildSucceeded: true,
@@ -95,7 +103,15 @@ describe("createMarkdownSummary", () => {
                         targetFramework: "net8.0",
                         projectType: "classlib",
                         projectPath: "/tmp/consumer/Consumer.csproj",
-                        packagesInstalled: [],
+                        consumerMode: "combined",
+                        packagesInstalled: [
+                            {
+                                name: "MyLibrary.1.0.0.nupkg",
+                                path: "/tmp/artifacts/MyLibrary.1.0.0.nupkg",
+                                id: "MyLibrary",
+                                version: "1.0.0",
+                            },
+                        ],
                         installSucceeded: true,
                         restoreSucceeded: true,
                         buildSucceeded: true,
@@ -107,7 +123,7 @@ describe("createMarkdownSummary", () => {
             }),
         );
 
-        expect(summary).toContain("| net8.0 | classlib | ✅ | ✅ | ✅ |  |");
+        expect(summary).toContain("| net8.0 | classlib | MyLibrary 1.0.0 | ✅ | ✅ | ✅ |  |");
         expect(summary).not.toContain("## Failure Details");
     });
 
@@ -121,7 +137,15 @@ describe("createMarkdownSummary", () => {
                         targetFramework: "net8.0",
                         projectType: "console",
                         projectPath: "/tmp/consumer/Consumer.csproj",
-                        packagesInstalled: [],
+                        consumerMode: "combined",
+                        packagesInstalled: [
+                            {
+                                name: "MyLibrary.1.0.0.nupkg",
+                                path: "/tmp/artifacts/MyLibrary.1.0.0.nupkg",
+                                id: "MyLibrary",
+                                version: "1.0.0",
+                            },
+                        ],
                         installSucceeded: true,
                         restoreSucceeded: false,
                         buildSucceeded: false,
@@ -133,7 +157,7 @@ describe("createMarkdownSummary", () => {
             }),
         );
 
-        expect(summary).toContain("| net8.0 | console | ✅ | ❌ | ❌ | restore |");
+        expect(summary).toContain("| net8.0 | console | MyLibrary 1.0.0 | ✅ | ❌ | ❌ | restore |");
         expect(summary).toContain("Failed stage: restore");
         expect(summary).toContain("## Failure Details");
         expect(summary).toContain("NU1101: Unable to find package MyLibrary");
@@ -174,7 +198,15 @@ describe("createMarkdownSummary", () => {
                         targetFramework: "net8.0",
                         projectType: "classlib",
                         projectPath: "/tmp/consumer/Consumer.csproj",
-                        packagesInstalled: [],
+                        consumerMode: "combined",
+                        packagesInstalled: [
+                            {
+                                name: "MyLibrary.1.0.0.nupkg",
+                                path: "/tmp/artifacts/MyLibrary.1.0.0.nupkg",
+                                id: "MyLibrary",
+                                version: "1.0.0",
+                            },
+                        ],
                         installSucceeded: false,
                         restoreSucceeded: false,
                         buildSucceeded: false,
@@ -201,7 +233,15 @@ describe("createMarkdownSummary", () => {
                         targetFramework: "net8.0",
                         projectType: "classlib",
                         projectPath: "/tmp/consumer/Consumer.csproj",
-                        packagesInstalled: [],
+                        consumerMode: "combined",
+                        packagesInstalled: [
+                            {
+                                name: "MyLibrary.1.0.0.nupkg",
+                                path: "/tmp/artifacts/MyLibrary.1.0.0.nupkg",
+                                id: "MyLibrary",
+                                version: "1.0.0",
+                            },
+                        ],
                         installSucceeded: false,
                         restoreSucceeded: false,
                         buildSucceeded: false,

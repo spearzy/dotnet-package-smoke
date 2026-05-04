@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Add `packages-json` output for downstream workflow steps.
+- Add `consumer-mode` with `combined` and `per-package` generated consumer modes.
 
 ### Changed
 - Switch the action bundle from `ncc` to `esbuild` so current ESM-only GitHub Action Toolkit packages can be bundled.

@@ -71,6 +71,19 @@ With extra `dotnet pack` arguments:
 
 `pack-arguments` supports quoted values and is passed to `dotnet pack` as arguments, not through a shell.
 
+For multi-package repositories, generated consumers install all produced packages together by default. To verify each package in isolation, use `consumer-mode: per-package`:
+
+```yaml
+- uses: spearzy/dotnet-package-smoke@v1
+  with:
+    package-projects: |
+      src/MyLibrary/MyLibrary.csproj
+      src/MyLibrary.Extensions/MyLibrary.Extensions.csproj
+    consumer-mode: per-package
+```
+
+Use `combined` when packages are intended to be consumed together. Use `per-package` when each produced package should be independently installable.
+
 To keep temporary workspaces for debugging failed checks:
 
 ```yaml
@@ -93,6 +106,7 @@ At least one validation mode must be enabled: either `generated-consumers: true`
 | `generated-consumers` | No | `true` | Create generated temporary consumer projects and add produced packages from the local feed. |
 | `consumer-target-frameworks` | No | `net8.0` | Target frameworks used for generated consumer projects. Supports multiline or comma-separated values. |
 | `consumer-project-type` | No | `classlib` | Generated consumer project type. Supported values: `classlib`, `console`. |
+| `consumer-mode` | No | `combined` | Generated consumer package scope. Supported values: `combined`, `per-package`. |
 | `smoke-projects` | No | | Optional smoke test project paths. Supports multiline or comma-separated values and glob patterns. |
 | `working-directory` | No | `.` | Directory used to resolve project paths, globs, and relative output directories. |
 | `configuration` | No | `Release` | .NET build configuration used for build and pack commands. |
@@ -170,7 +184,6 @@ The project focuses on proving that packed NuGet packages can be consumed by cle
 ### Near term
 
 - Add `smoke-arguments` for passing restore/test options to smoke projects.
-- Add `consumer-mode: per-package` for package families and multi-package repositories.
 - Improve generated consumer failure messages for common NuGet restore and compatibility problems.
 
 ### Later

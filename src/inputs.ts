@@ -2,12 +2,14 @@ import * as core from "@actions/core";
 import path from "node:path";
 
 export type ConsumerProjectType = "classlib" | "console";
+export type ConsumerMode = "combined" | "per-package";
 
 export interface ActionInputs {
     packageProjects: string[];
     generatedConsumers: boolean;
     consumerTargetFrameworks: string[];
     consumerProjectType: ConsumerProjectType;
+    consumerMode: ConsumerMode;
     smokeProjects: string[];
     workingDirectory: string;
     configuration: string;
@@ -132,6 +134,20 @@ export function parseConsumerProjectType(value: string): ConsumerProjectType {
     throw new Error("Input 'consumer-project-type' must be one of: classlib, console.");
 }
 
+export function parseConsumerMode(value: string): ConsumerMode {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized.length === 0 || normalized === "combined") {
+        return "combined";
+    }
+
+    if (normalized === "per-package") {
+        return "per-package";
+    }
+
+    throw new Error("Input 'consumer-mode' must be one of: combined, per-package.");
+}
+
 export function getInputs(): ActionInputs {
     const packageProjects = parseListInput(core.getInput("package-projects", { required: true }));
     const workingDirectoryInput = core.getInput("working-directory") || ".";
@@ -155,6 +171,7 @@ export function getInputs(): ActionInputs {
         generatedConsumers,
         consumerTargetFrameworks: parseListInput(core.getInput("consumer-target-frameworks") || "net8.0"),
         consumerProjectType: parseConsumerProjectType(core.getInput("consumer-project-type")),
+        consumerMode: parseConsumerMode(core.getInput("consumer-mode")),
         smokeProjects,
         workingDirectory: path.resolve(workingDirectoryInput),
         configuration: core.getInput("configuration") || "Release",

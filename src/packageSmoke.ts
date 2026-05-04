@@ -144,6 +144,7 @@ export async function runPackageSmoke(
         ? await runGeneratedConsumers(
             inputs.consumerTargetFrameworks,
             inputs.consumerProjectType,
+            inputs.consumerMode,
             inputs.configuration,
             localFeedDirectory,
             packages,

@@ -26,6 +26,11 @@ inputs:
     required: false
     default: classlib
 
+  consumer-mode:
+    description: Generated consumer package scope. One of combined or per-package.
+    required: false
+    default: combined
+
   smoke-projects:
     description: Optional smoke test projects to restore and test against the local feed. Supports multiline values, comma-separated values, and globs.
     required: false

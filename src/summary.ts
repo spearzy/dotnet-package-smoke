@@ -30,6 +30,22 @@ function smokeProjectFailed(
     return !smokeProject.restoreSucceeded || !smokeProject.testSucceeded;
 }
 
+function generatedConsumerPackageLabel(
+    consumer: PackageSmokeResult["generatedConsumers"][number],
+): string {
+    if (consumer.packagesInstalled.length === 0) {
+        return "";
+    }
+
+    if (consumer.packagesInstalled.length === 1) {
+        const packageFile = consumer.packagesInstalled[0];
+
+        return `${packageFile.id} ${packageFile.version}`;
+    }
+
+    return `${consumer.packagesInstalled.length} packages`;
+}
+
 function resultLine(label: string, passed: number, failed: number): string {
     if (failed === 0) {
         return `✅ ${passed} ${label} passed`;
@@ -78,12 +94,14 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
     if (result.generatedConsumers.length === 0) {
         lines.push("Generated consumer checks were skipped.");
     } else {
-        lines.push("| Target Framework | Project Type | Install | Restore | Build | Failed Stage |");
-        lines.push("| --- | --- | --- | --- | --- | --- |");
+        lines.push("| Target Framework | Project Type | Packages | Install | Restore | Build | Failed Stage |");
+        lines.push("| --- | --- | --- | --- | --- | --- | --- |");
 
         for (const consumer of result.generatedConsumers) {
             lines.push(
-                `| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${icon(
+                `| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${tableValue(
+                    generatedConsumerPackageLabel(consumer),
+                )} | ${icon(
                     consumer.installSucceeded,
                 )} | ${icon(consumer.restoreSucceeded)} | ${icon(
                     consumer.buildSucceeded,
