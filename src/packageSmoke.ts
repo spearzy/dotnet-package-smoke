@@ -4,14 +4,14 @@ import {
     buildPackArgs,
     buildRestoreArgs,
     runDotnet,
-} from "./dotnet";
-import { GeneratedConsumerResult, runGeneratedConsumers } from "./generatedConsumers";
-import { resolveProjectGlobs } from "./glob";
-import { ActionInputs } from "./inputs";
-import { Logger } from "./logger";
-import { cleanLocalFeed, copyPackagesToLocalFeed } from "./localFeed";
-import { cleanPackageFiles, findPackageFiles, PackageFile } from "./packages";
-import { runSmokeProjects, SmokeProjectResult } from "./smokeRunner";
+} from "./dotnet.js";
+import { GeneratedConsumerResult, runGeneratedConsumers } from "./generatedConsumers.js";
+import { resolveProjectGlobs } from "./glob.js";
+import { ActionInputs } from "./inputs.js";
+import { Logger } from "./logger.js";
+import { cleanLocalFeed, copyPackagesToLocalFeed } from "./localFeed.js";
+import { cleanPackageFiles, findPackageFiles, PackageFile } from "./packages.js";
+import { runSmokeProjects, SmokeProjectResult } from "./smokeRunner.js";
 
 export interface PackageSmokeResult {
     packages: PackageFile[];

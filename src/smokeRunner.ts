@@ -6,9 +6,9 @@ import {
     buildTestArgs,
     CommandResult,
     runDotnet,
-} from "./dotnet";
-import { Logger } from "./logger";
-import { createNuGetConfig } from "./nugetConfig";
+} from "./dotnet.js";
+import { Logger } from "./logger.js";
+import { createNuGetConfig } from "./nugetConfig.js";
 
 export type SmokeProjectFailureStage = "restore" | "test";
 

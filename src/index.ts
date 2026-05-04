@@ -1,9 +1,9 @@
 import * as core from "@actions/core";
-import { GeneratedConsumerResult } from "./generatedConsumers";
-import { getInputs } from "./inputs";
-import { runPackageSmoke } from "./packageSmoke";
-import { SmokeProjectResult } from "./smokeRunner";
-import { createMarkdownSummary } from "./summary";
+import { GeneratedConsumerResult } from "./generatedConsumers.js";
+import { getInputs } from "./inputs.js";
+import { runPackageSmoke } from "./packageSmoke.js";
+import { SmokeProjectResult } from "./smokeRunner.js";
+import { createMarkdownSummary } from "./summary.js";
 
 function generatedConsumerFailed(consumer: GeneratedConsumerResult): boolean {
     return !consumer.installSucceeded || !consumer.restoreSucceeded || !consumer.buildSucceeded;

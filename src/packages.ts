@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { extractPackageMetadata } from "./packageMetadata";
+import { extractPackageMetadata } from "./packageMetadata.js";
 
 export interface PackageFile {
     name: string;
