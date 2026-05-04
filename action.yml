@@ -71,6 +71,9 @@ inputs:
 outputs:
   packages-packed:
     description: Number of packages packed.
+
+  packages-json:
+    description: JSON array containing packed package metadata.
   
   local-feed-directory:
     description: Path to the local NuGet feed.

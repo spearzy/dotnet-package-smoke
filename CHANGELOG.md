@@ -4,10 +4,10 @@ All notable changes to `dotnet-package-smoke` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/).
 
-## [1.0.1] - 2026-05-03
+## [1.0.1] - 2026-05-04
 
 ### Added
-- No user-facing additions.
+- Add `packages-json` output for downstream workflow steps.
 
 ### Changed
 - Switch the action bundle from `ncc` to `esbuild` so current ESM-only GitHub Action Toolkit packages can be bundled.

@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import { GeneratedConsumerResult } from "./generatedConsumers.js";
 import { getInputs } from "./inputs.js";
+import { createPackagesJson } from "./outputs.js";
 import { runPackageSmoke } from "./packageSmoke.js";
 import { SmokeProjectResult } from "./smokeRunner.js";
 import { createMarkdownSummary } from "./summary.js";
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
     const failedSmokeProjects = result.smokeProjects.filter(smokeProjectFailed);
 
     core.setOutput("packages-packed", result.packages.length.toString());
+    core.setOutput("packages-json", createPackagesJson(result.packages));
     core.setOutput("local-feed-directory", result.localFeedDirectory);
     core.setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
     core.setOutput(

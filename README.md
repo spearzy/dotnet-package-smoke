@@ -108,6 +108,7 @@ At least one validation mode must be enabled: either `generated-consumers: true`
 | Output | Description |
 | --- | --- |
 | `packages-packed` | Number of `.nupkg` files found after packing. |
+| `packages-json` | JSON array containing packed package metadata: `id`, `version`, `name`, and `path`. |
 | `local-feed-directory` | Resolved path to the local NuGet feed. |
 | `generated-consumers-tested` | Number of generated consumer projects tested. |
 | `generated-consumers-passed` | Number of generated consumers that passed install, restore, and build. |
@@ -169,7 +170,6 @@ The project focuses on proving that packed NuGet packages can be consumed by cle
 ### Near term
 
 - Add `smoke-arguments` for passing restore/test options to smoke projects.
-- Add a `packages-json` output for downstream workflow steps.
 - Add `consumer-mode: per-package` for package families and multi-package repositories.
 - Improve generated consumer failure messages for common NuGet restore and compatibility problems.
 
