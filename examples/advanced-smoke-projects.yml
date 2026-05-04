@@ -31,4 +31,8 @@ jobs:
             net9.0
           pack-arguments: >-
             -p:ContinuousIntegrationBuild=true
+          smoke-restore-arguments: >-
+            --disable-parallel
+          smoke-test-arguments: >-
+            --filter Category=Smoke
           retain-on-failure: true

@@ -63,6 +63,14 @@ inputs:
     description: Additional arguments passed to dotnet pack. Supports quoted values.
     required: false
 
+  smoke-restore-arguments:
+    description: Additional arguments passed to dotnet restore for smoke projects. Supports quoted values.
+    required: false
+
+  smoke-test-arguments:
+    description: Additional arguments passed to dotnet test for smoke projects. Supports quoted values.
+    required: false
+
   retain-on-failure:
     description: Keep generated consumer and smoke project temporary workspaces when their checks fail.
     required: false

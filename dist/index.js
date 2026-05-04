@@ -22674,6 +22674,14 @@ function getInputs() {
       getInput("pack-arguments"),
       "pack-arguments"
     ),
+    smokeRestoreArguments: parseArgumentInput(
+      getInput("smoke-restore-arguments"),
+      "smoke-restore-arguments"
+    ),
+    smokeTestArguments: parseArgumentInput(
+      getInput("smoke-test-arguments"),
+      "smoke-test-arguments"
+    ),
     retainOnFailure: parseBooleanInput(
       getInput("retain-on-failure"),
       "retain-on-failure",
@@ -29541,13 +29549,14 @@ function outputPathArgs(workspaceDirectory, projectIndex) {
     `-p:BaseIntermediateOutputPath=${path14.join(projectWorkspace, "obj")}${path14.sep}`
   ];
 }
-async function runSmokeProject(projectPath, projectIndex, workingDirectory, configuration, nugetConfigPath, workspaceDirectory, logger) {
+async function runSmokeProject(projectPath, projectIndex, workingDirectory, configuration, nugetConfigPath, workspaceDirectory, restoreArguments, testArguments, logger) {
   const outputArgs = outputPathArgs(workspaceDirectory, projectIndex);
   logger.info(`Restoring smoke project: ${projectPath}`);
   const restore = await runDotnet(
     [
       ...buildRestoreArgs(projectPath, nugetConfigPath, true),
-      ...outputArgs
+      ...outputArgs,
+      ...restoreArguments
     ],
     workingDirectory
   );
@@ -29565,7 +29574,8 @@ async function runSmokeProject(projectPath, projectIndex, workingDirectory, conf
   const test = await runDotnet(
     [
       ...buildTestArgs(projectPath, configuration, true),
-      ...outputArgs
+      ...outputArgs,
+      ...testArguments
     ],
     workingDirectory
   );
@@ -29588,7 +29598,7 @@ async function runSmokeProject(projectPath, projectIndex, workingDirectory, conf
     retainedWorkspace: null
   };
 }
-async function runSmokeProjects(smokeProjects, workingDirectory, configuration, localFeedDirectory, retainOnFailure, logger) {
+async function runSmokeProjects(smokeProjects, workingDirectory, configuration, localFeedDirectory, restoreArguments, testArguments, retainOnFailure, logger) {
   const workspaceDirectory = await fs7.mkdtemp(path14.join(os8.tmpdir(), "dotnet-package-smoke-projects-"));
   const nugetConfigPath = path14.join(workspaceDirectory, "NuGet.config");
   const globalPackagesFolder = path14.join(workspaceDirectory, "packages");
@@ -29609,6 +29619,8 @@ async function runSmokeProjects(smokeProjects, workingDirectory, configuration, 
           configuration,
           nugetConfigPath,
           workspaceDirectory,
+          restoreArguments,
+          testArguments,
           logger
         )
       );
@@ -29736,6 +29748,8 @@ async function runPackageSmoke(inputs, logger) {
     inputs.workingDirectory,
     inputs.configuration,
     localFeedDirectory,
+    inputs.smokeRestoreArguments,
+    inputs.smokeTestArguments,
     inputs.retainOnFailure,
     logger
   ) : [];

@@ -4,6 +4,18 @@ All notable changes to `dotnet-package-smoke` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-05-04
+
+### Added
+- Add `smoke-restore-arguments` for passing extra arguments to `dotnet restore` for smoke projects.
+- Add `smoke-test-arguments` for passing extra arguments to `dotnet test` for smoke projects.
+
+### Changed
+- Remove the planned generic `smoke-arguments` wording in favour of explicit restore and test argument inputs.
+
+### Fixed
+- None.
+
 ## [1.1.0] - 2026-05-04
 
 ### Added

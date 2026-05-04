@@ -41,6 +41,8 @@ async function runSmokeProject(
     configuration: string,
     nugetConfigPath: string,
     workspaceDirectory: string,
+    restoreArguments: string[],
+    testArguments: string[],
     logger: Logger,
 ): Promise<SmokeProjectResult> {
     const outputArgs = outputPathArgs(workspaceDirectory, projectIndex);
@@ -50,6 +52,7 @@ async function runSmokeProject(
         [
             ...buildRestoreArgs(projectPath, nugetConfigPath, true),
             ...outputArgs,
+            ...restoreArguments,
         ],
         workingDirectory,
     );
@@ -70,6 +73,7 @@ async function runSmokeProject(
         [
             ...buildTestArgs(projectPath, configuration, true),
             ...outputArgs,
+            ...testArguments,
         ],
         workingDirectory,
     );
@@ -100,6 +104,8 @@ export async function runSmokeProjects(
     workingDirectory: string,
     configuration: string,
     localFeedDirectory: string,
+    restoreArguments: string[],
+    testArguments: string[],
     retainOnFailure: boolean,
     logger: Logger,
 ): Promise<SmokeProjectResult[]> {
@@ -126,6 +132,8 @@ export async function runSmokeProjects(
                     configuration,
                     nugetConfigPath,
                     workspaceDirectory,
+                    restoreArguments,
+                    testArguments,
                     logger,
                 ),
             );
