@@ -22599,6 +22599,11 @@ function getInputs() {
   };
 }
 
+// src/outputs.ts
+function createPackagesJson(packages) {
+  return JSON.stringify(packages);
+}
+
 // src/packageSmoke.ts
 var path15 = __toESM(require("node:path"));
 
@@ -29786,6 +29791,7 @@ async function main() {
   const failedGeneratedConsumers = result.generatedConsumers.filter(generatedConsumerFailed2);
   const failedSmokeProjects = result.smokeProjects.filter(smokeProjectFailed2);
   setOutput("packages-packed", result.packages.length.toString());
+  setOutput("packages-json", createPackagesJson(result.packages));
   setOutput("local-feed-directory", result.localFeedDirectory);
   setOutput("generated-consumers-tested", result.generatedConsumers.length.toString());
   setOutput(
