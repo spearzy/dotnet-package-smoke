@@ -4,7 +4,7 @@ All notable changes to `dotnet-package-smoke` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/).
 
-## [1.0.1] - 2026-05-04
+## [1.1.0] - 2026-05-04
 
 ### Added
 - Add `packages-json` output for downstream workflow steps.
