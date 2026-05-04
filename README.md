@@ -2,7 +2,7 @@
 
 Test your NuGet packages the way consumers install them.
 
-`dotnet-package-smoke` is an in-progress GitHub Action for .NET package authors. It packs one or more projects into a local NuGet feed, then checks that the produced packages can be installed, restored, and built by generated temporary consumer projects.
+`dotnet-package-smoke` is a GitHub Action for .NET package authors. It packs one or more projects into a local NuGet feed, then checks that the produced packages can be installed, restored, and built by generated temporary consumer projects.
 
 Optional smoke test projects can also be restored and tested against the same local feed for deeper API validation.
 
@@ -162,9 +162,19 @@ npm run package  # Bundle src/index.ts into dist/index.js
 npm run all      # Build, test, and bundle
 ```
 
-## Current roadmap
+## Roadmap
 
-Next milestones:
+The project focuses on proving that packed NuGet packages can be consumed by clean .NET projects.
 
-1. Prepare the first tagged release.
-2. Publish the action to GitHub Marketplace.
+### Near term
+
+- Add `smoke-arguments` for passing restore/test options to smoke projects.
+- Add a `packages-json` output for downstream workflow steps.
+- Add `consumer-mode: per-package` for package families and multi-package repositories.
+- Improve generated consumer failure messages for common NuGet restore and compatibility problems.
+
+### Later
+
+- Infer consumer target frameworks from produced packages.
+- Add package include/exclude filtering.
+- Expand documentation for analyzers, source generators, SDK-style packages, and multi-package repositories.
