@@ -28,6 +28,16 @@ const packages: PackageFile[] = [
     },
 ];
 
+const packageFamily: PackageFile[] = [
+    packages[0],
+    {
+        name: "MyLibrary.Extensions.1.0.0.nupkg",
+        path: "/tmp/artifacts/MyLibrary.Extensions.1.0.0.nupkg",
+        id: "MyLibrary.Extensions",
+        version: "1.0.0",
+    },
+];
+
 describe("runGeneratedConsumers", () => {
     afterEach(() => {
         // Each test defines its own dotnet command results. Resetting here
@@ -47,6 +57,7 @@ describe("runGeneratedConsumers", () => {
         const results = await runGeneratedConsumers(
             ["net8.0"],
             "classlib",
+            "combined",
             "Release",
             "/tmp/feed",
             packages,
@@ -58,6 +69,8 @@ describe("runGeneratedConsumers", () => {
         expect(results[0]).toMatchObject({
             targetFramework: "net8.0",
             projectType: "classlib",
+            consumerMode: "combined",
+            packagesInstalled: packages,
             installSucceeded: true,
             restoreSucceeded: true,
             buildSucceeded: true,
@@ -83,6 +96,7 @@ describe("runGeneratedConsumers", () => {
         const results = await runGeneratedConsumers(
             ["net8.0"],
             "classlib",
+            "combined",
             "Release",
             "/tmp/feed",
             packages,
@@ -120,6 +134,7 @@ describe("runGeneratedConsumers", () => {
         const results = await runGeneratedConsumers(
             ["net8.0"],
             "classlib",
+            "combined",
             "Release",
             "/tmp/feed",
             packages,
@@ -157,6 +172,7 @@ describe("runGeneratedConsumers", () => {
         const results = await runGeneratedConsumers(
             ["net8.0"],
             "classlib",
+            "combined",
             "Release",
             "/tmp/feed",
             packages,
@@ -186,6 +202,7 @@ describe("runGeneratedConsumers", () => {
         const results = await runGeneratedConsumers(
             ["net8.0"],
             "classlib",
+            "combined",
             "Release",
             "/tmp/feed",
             packages,
@@ -199,5 +216,61 @@ describe("runGeneratedConsumers", () => {
         await expect(fs.stat(retainedWorkspace as string)).resolves.toBeDefined();
 
         await fs.rm(retainedWorkspace as string, { recursive: true, force: true });
+    });
+
+    it("installs all packages into one consumer in combined mode", async () => {
+        mockedRunDotnet.mockResolvedValue({
+            exitCode: 0,
+            stdout: "",
+            stderr: "",
+        });
+
+        const results = await runGeneratedConsumers(
+            ["net8.0"],
+            "classlib",
+            "combined",
+            "Release",
+            "/tmp/feed",
+            packageFamily,
+            false,
+            { info: () => undefined },
+        );
+
+        expect(results).toHaveLength(1);
+        expect(results[0].packagesInstalled).toEqual(packageFamily);
+        expect(mockedRunDotnet).toHaveBeenCalledTimes(5);
+    });
+
+    it("creates one consumer per package and target framework in per-package mode", async () => {
+        mockedRunDotnet.mockResolvedValue({
+            exitCode: 0,
+            stdout: "",
+            stderr: "",
+        });
+
+        const results = await runGeneratedConsumers(
+            ["net8.0", "net9.0"],
+            "classlib",
+            "per-package",
+            "Release",
+            "/tmp/feed",
+            packageFamily,
+            false,
+            { info: () => undefined },
+        );
+
+        expect(results).toHaveLength(4);
+        expect(
+            results.map((result) =>
+                result.packagesInstalled.map((packageFile) => packageFile.id),
+            ),
+        ).toEqual([
+            ["MyLibrary"],
+            ["MyLibrary.Extensions"],
+            ["MyLibrary"],
+            ["MyLibrary.Extensions"],
+        ]);
+        expect(results.every((result) => result.consumerMode === "per-package")).toBe(true);
+        expect(mockedRunDotnet).toHaveBeenCalledTimes(16);
     });
 });

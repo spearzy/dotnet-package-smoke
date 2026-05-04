@@ -22550,6 +22550,16 @@ function parseConsumerProjectType(value) {
   }
   throw new Error("Input 'consumer-project-type' must be one of: classlib, console.");
 }
+function parseConsumerMode(value) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0 || normalized === "combined") {
+    return "combined";
+  }
+  if (normalized === "per-package") {
+    return "per-package";
+  }
+  throw new Error("Input 'consumer-mode' must be one of: combined, per-package.");
+}
 function getInputs() {
   const packageProjects = parseListInput(getInput("package-projects", { required: true }));
   const workingDirectoryInput = getInput("working-directory") || ".";
@@ -22572,6 +22582,7 @@ function getInputs() {
     generatedConsumers,
     consumerTargetFrameworks: parseListInput(getInput("consumer-target-frameworks") || "net8.0"),
     consumerProjectType: parseConsumerProjectType(getInput("consumer-project-type")),
+    consumerMode: parseConsumerMode(getInput("consumer-mode")),
     smokeProjects,
     workingDirectory: import_node_path.default.resolve(workingDirectoryInput),
     configuration: getInput("configuration") || "Release",
@@ -22720,25 +22731,60 @@ function createNuGetConfig(localFeedDirectory, globalPackagesFolder) {
 function safeName(value) {
   return value.replace(/[^A-Za-z0-9_]/g, "_");
 }
-function generatedConsumerProjectName(targetFramework) {
-  return `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
+function packageScopeName(packages) {
+  if (packages.length === 1) {
+    return safeName(packages[0].id);
+  }
+  return "combined";
+}
+function packageScopeLabel(packages) {
+  if (packages.length === 1) {
+    const packageFile = packages[0];
+    return `${packageFile.id} ${packageFile.version}`;
+  }
+  return `${packages.length} packages`;
+}
+function generatedConsumerProjectName(targetFramework, consumerMode, packages) {
+  const baseName = `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
+  if (consumerMode === "combined") {
+    return baseName;
+  }
+  return `${baseName}_${packageScopeName(packages)}`;
+}
+function generatedConsumerProjectDirectory(workspaceDirectory, targetFramework, consumerMode, packages) {
+  if (consumerMode === "combined") {
+    return path5.join(workspaceDirectory, targetFramework);
+  }
+  return path5.join(
+    workspaceDirectory,
+    targetFramework,
+    packageScopeName(packages)
+  );
 }
 function commandOutput(result) {
   return `${result.stdout}
 ${result.stderr}`.trim();
 }
-async function createGeneratedConsumer(targetFramework, projectType, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger) {
-  const projectName = generatedConsumerProjectName(targetFramework);
-  const projectDirectory = path5.join(workspaceDirectory, targetFramework);
+async function createGeneratedConsumer(targetFramework, projectType, consumerMode, configuration, workspaceDirectory, nugetConfigPath, localFeedDirectory, packages, logger) {
+  const projectName = generatedConsumerProjectName(targetFramework, consumerMode, packages);
+  const projectDirectory = generatedConsumerProjectDirectory(
+    workspaceDirectory,
+    targetFramework,
+    consumerMode,
+    packages
+  );
   const projectPath = path5.join(projectDirectory, `${projectName}.csproj`);
   const resultBase = {
     targetFramework,
     projectType,
+    consumerMode,
     projectPath,
     packagesInstalled: packages,
     retainedWorkspace: null
   };
-  logger.info(`Creating generated consumer for ${targetFramework}.`);
+  logger.info(
+    `Creating generated consumer for ${targetFramework} (${packageScopeLabel(packages)}).`
+  );
   const create2 = await runDotnet(
     buildNewConsumerArgs(projectType, projectName, projectDirectory, targetFramework),
     workspaceDirectory
@@ -22754,7 +22800,9 @@ async function createGeneratedConsumer(targetFramework, projectType, configurati
     };
   }
   for (const packageFile of packages) {
-    logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
+    logger.info(
+      `Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`
+    );
     const add = await runDotnet(
       buildAddPackageArgs(projectPath, packageFile.id, packageFile.version, localFeedDirectory),
       workspaceDirectory
@@ -22809,7 +22857,7 @@ async function createGeneratedConsumer(targetFramework, projectType, configurati
     failureOutput: ""
   };
 }
-async function runGeneratedConsumers(targetFrameworks, projectType, configuration, localFeedDirectory, packages, retainOnFailure, logger) {
+async function runGeneratedConsumers(targetFrameworks, projectType, consumerMode, configuration, localFeedDirectory, packages, retainOnFailure, logger) {
   const workspaceDirectory = await fs3.mkdtemp(path5.join(os6.tmpdir(), "dotnet-package-smoke-consumers-"));
   const nugetConfigPath = path5.join(workspaceDirectory, "NuGet.config");
   const globalPackagesFolder = path5.join(workspaceDirectory, "packages");
@@ -22821,19 +22869,23 @@ async function runGeneratedConsumers(targetFrameworks, projectType, configuratio
       "utf8"
     );
     const results = [];
+    const packageGroups = consumerMode === "combined" ? [packages] : packages.map((packageFile) => [packageFile]);
     for (const targetFramework of targetFrameworks) {
-      results.push(
-        await createGeneratedConsumer(
-          targetFramework,
-          projectType,
-          configuration,
-          workspaceDirectory,
-          nugetConfigPath,
-          localFeedDirectory,
-          packages,
-          logger
-        )
-      );
+      for (const packageGroup of packageGroups) {
+        results.push(
+          await createGeneratedConsumer(
+            targetFramework,
+            projectType,
+            consumerMode,
+            configuration,
+            workspaceDirectory,
+            nugetConfigPath,
+            localFeedDirectory,
+            packageGroup,
+            logger
+          )
+        );
+      }
     }
     retainWorkspace = retainOnFailure && results.some(
       (result) => !result.installSucceeded || !result.restoreSucceeded || !result.buildSucceeded
@@ -29595,6 +29647,7 @@ async function runPackageSmoke(inputs, logger) {
   const generatedConsumers = inputs.generatedConsumers ? await runGeneratedConsumers(
     inputs.consumerTargetFrameworks,
     inputs.consumerProjectType,
+    inputs.consumerMode,
     inputs.configuration,
     localFeedDirectory,
     packages,
@@ -29640,6 +29693,16 @@ function generatedConsumerFailed(consumer) {
 function smokeProjectFailed(smokeProject) {
   return !smokeProject.restoreSucceeded || !smokeProject.testSucceeded;
 }
+function generatedConsumerPackageLabel(consumer) {
+  if (consumer.packagesInstalled.length === 0) {
+    return "";
+  }
+  if (consumer.packagesInstalled.length === 1) {
+    const packageFile = consumer.packagesInstalled[0];
+    return `${packageFile.id} ${packageFile.version}`;
+  }
+  return `${consumer.packagesInstalled.length} packages`;
+}
 function resultLine(label, passed, failed) {
   if (failed === 0) {
     return `\u2705 ${passed} ${label} passed`;
@@ -29681,11 +29744,13 @@ function createMarkdownSummary(result) {
   if (result.generatedConsumers.length === 0) {
     lines.push("Generated consumer checks were skipped.");
   } else {
-    lines.push("| Target Framework | Project Type | Install | Restore | Build | Failed Stage |");
-    lines.push("| --- | --- | --- | --- | --- | --- |");
+    lines.push("| Target Framework | Project Type | Packages | Install | Restore | Build | Failed Stage |");
+    lines.push("| --- | --- | --- | --- | --- | --- | --- |");
     for (const consumer of result.generatedConsumers) {
       lines.push(
-        `| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${icon(
+        `| ${tableValue(consumer.targetFramework)} | ${consumer.projectType} | ${tableValue(
+          generatedConsumerPackageLabel(consumer)
+        )} | ${icon(
           consumer.installSucceeded
         )} | ${icon(consumer.restoreSucceeded)} | ${icon(
           consumer.buildSucceeded
@@ -29755,11 +29820,21 @@ function generatedConsumerFailed2(consumer) {
 function smokeProjectFailed2(smokeProject) {
   return !smokeProject.restoreSucceeded || !smokeProject.testSucceeded;
 }
+function generatedConsumerPackageLabel2(consumer) {
+  if (consumer.packagesInstalled.length === 1) {
+    const packageFile = consumer.packagesInstalled[0];
+    return ` (${packageFile.id} ${packageFile.version})`;
+  }
+  if (consumer.packagesInstalled.length > 1) {
+    return ` (${consumer.packagesInstalled.length} packages)`;
+  }
+  return "";
+}
 function generatedConsumerFailureMessage(consumers) {
   if (consumers.length === 1) {
     const consumer = consumers[0];
     const stage = consumer.failureStage ?? "unknown";
-    return `Generated consumer check failed for ${consumer.targetFramework} during ${stage}.`;
+    return `Generated consumer check failed for ${consumer.targetFramework}${generatedConsumerPackageLabel2(consumer)} during ${stage}.`;
   }
   const failuresByStage = consumers.reduce((counts, consumer) => {
     const stage = consumer.failureStage ?? "unknown";

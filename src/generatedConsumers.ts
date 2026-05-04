@@ -9,7 +9,7 @@ import {
     CommandResult,
     runDotnet,
 } from "./dotnet.js";
-import { ConsumerProjectType } from "./inputs.js";
+import type { ConsumerMode, ConsumerProjectType } from "./inputs.js";
 import { Logger } from "./logger.js";
 import { createNuGetConfig } from "./nugetConfig.js";
 import { PackageFile } from "./packages.js";
@@ -19,6 +19,7 @@ export type GeneratedConsumerFailureStage = "create" | "install" | "restore" | "
 export interface GeneratedConsumerResult {
     targetFramework: string;
     projectType: ConsumerProjectType;
+    consumerMode: ConsumerMode;
     projectPath: string;
     packagesInstalled: PackageFile[];
     installSucceeded: boolean;
@@ -33,8 +34,53 @@ function safeName(value: string): string {
     return value.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
-function generatedConsumerProjectName(targetFramework: string): string {
-    return `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
+function packageScopeName(packages: PackageFile[]): string {
+    if (packages.length === 1) {
+        return safeName(packages[0].id);
+    }
+
+    return "combined";
+}
+
+function packageScopeLabel(packages: PackageFile[]): string {
+    if (packages.length === 1) {
+        const packageFile = packages[0];
+
+        return `${packageFile.id} ${packageFile.version}`;
+    }
+
+    return `${packages.length} packages`;
+}
+
+function generatedConsumerProjectName(
+    targetFramework: string,
+    consumerMode: ConsumerMode,
+    packages: PackageFile[],
+): string {
+    const baseName = `DotnetPackageSmokeConsumer_${safeName(targetFramework)}`;
+
+    if (consumerMode === "combined") {
+        return baseName;
+    }
+
+    return `${baseName}_${packageScopeName(packages)}`;
+}
+
+function generatedConsumerProjectDirectory(
+    workspaceDirectory: string,
+    targetFramework: string,
+    consumerMode: ConsumerMode,
+    packages: PackageFile[],
+): string {
+    if (consumerMode === "combined") {
+        return path.join(workspaceDirectory, targetFramework);
+    }
+
+    return path.join(
+        workspaceDirectory,
+        targetFramework,
+        packageScopeName(packages),
+    );
 }
 
 function commandOutput(result: CommandResult): string {
@@ -44,6 +90,7 @@ function commandOutput(result: CommandResult): string {
 async function createGeneratedConsumer(
     targetFramework: string,
     projectType: ConsumerProjectType,
+    consumerMode: ConsumerMode,
     configuration: string,
     workspaceDirectory: string,
     nugetConfigPath: string,
@@ -51,18 +98,26 @@ async function createGeneratedConsumer(
     packages: PackageFile[],
     logger: Logger,
 ): Promise<GeneratedConsumerResult> {
-    const projectName = generatedConsumerProjectName(targetFramework);
-    const projectDirectory = path.join(workspaceDirectory, targetFramework);
+    const projectName = generatedConsumerProjectName(targetFramework, consumerMode, packages);
+    const projectDirectory = generatedConsumerProjectDirectory(
+        workspaceDirectory,
+        targetFramework,
+        consumerMode,
+        packages,
+    );
     const projectPath = path.join(projectDirectory, `${projectName}.csproj`);
     const resultBase = {
         targetFramework,
         projectType,
+        consumerMode,
         projectPath,
         packagesInstalled: packages,
         retainedWorkspace: null,
     };
 
-    logger.info(`Creating generated consumer for ${targetFramework}.`);
+    logger.info(
+        `Creating generated consumer for ${targetFramework} (${packageScopeLabel(packages)}).`,
+    );
 
     const create = await runDotnet(
         buildNewConsumerArgs(projectType, projectName, projectDirectory, targetFramework),
@@ -80,7 +135,9 @@ async function createGeneratedConsumer(
     }
 
     for (const packageFile of packages) {
-        logger.info(`Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`);
+        logger.info(
+            `Adding package ${packageFile.id} ${packageFile.version} to generated consumer ${targetFramework}.`,
+        );
 
         const add = await runDotnet(
             buildAddPackageArgs(projectPath, packageFile.id, packageFile.version, localFeedDirectory),
@@ -144,6 +201,7 @@ async function createGeneratedConsumer(
 export async function runGeneratedConsumers(
     targetFrameworks: string[],
     projectType: ConsumerProjectType,
+    consumerMode: ConsumerMode,
     configuration: string,
     localFeedDirectory: string,
     packages: PackageFile[],
@@ -163,20 +221,26 @@ export async function runGeneratedConsumers(
         );
 
         const results: GeneratedConsumerResult[] = [];
+        const packageGroups = consumerMode === "combined"
+            ? [packages]
+            : packages.map((packageFile) => [packageFile]);
 
         for (const targetFramework of targetFrameworks) {
-            results.push(
-                await createGeneratedConsumer(
-                    targetFramework,
-                    projectType,
-                    configuration,
-                    workspaceDirectory,
-                    nugetConfigPath,
-                    localFeedDirectory,
-                    packages,
-                    logger,
-                ),
-            );
+            for (const packageGroup of packageGroups) {
+                results.push(
+                    await createGeneratedConsumer(
+                        targetFramework,
+                        projectType,
+                        consumerMode,
+                        configuration,
+                        workspaceDirectory,
+                        nugetConfigPath,
+                        localFeedDirectory,
+                        packageGroup,
+                        logger,
+                    ),
+                );
+            }
         }
 
         retainWorkspace = retainOnFailure && results.some(

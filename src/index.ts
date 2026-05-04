@@ -14,12 +14,26 @@ function smokeProjectFailed(smokeProject: SmokeProjectResult): boolean {
     return !smokeProject.restoreSucceeded || !smokeProject.testSucceeded;
 }
 
+function generatedConsumerPackageLabel(consumer: GeneratedConsumerResult): string {
+    if (consumer.packagesInstalled.length === 1) {
+        const packageFile = consumer.packagesInstalled[0];
+
+        return ` (${packageFile.id} ${packageFile.version})`;
+    }
+
+    if (consumer.packagesInstalled.length > 1) {
+        return ` (${consumer.packagesInstalled.length} packages)`;
+    }
+
+    return "";
+}
+
 function generatedConsumerFailureMessage(consumers: GeneratedConsumerResult[]): string {
     if (consumers.length === 1) {
         const consumer = consumers[0];
         const stage = consumer.failureStage ?? "unknown";
 
-        return `Generated consumer check failed for ${consumer.targetFramework} during ${stage}.`;
+        return `Generated consumer check failed for ${consumer.targetFramework}${generatedConsumerPackageLabel(consumer)} during ${stage}.`;
     }
 
     const failuresByStage = consumers.reduce<Record<string, number>>((counts, consumer) => {
