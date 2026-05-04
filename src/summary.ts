@@ -1,4 +1,5 @@
-import { PackageSmokeResult } from "./packageSmoke.js";
+import { generatedConsumerFailureKindLabel } from "./failureClassification.js";
+import type { PackageSmokeResult } from "./packageSmoke.js";
 
 function icon(value: boolean): string {
     return value ? "✅" : "❌";
@@ -94,8 +95,8 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
     if (result.generatedConsumers.length === 0) {
         lines.push("Generated consumer checks were skipped.");
     } else {
-        lines.push("| Target Framework | Project Type | Packages | Install | Restore | Build | Failed Stage |");
-        lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+        lines.push("| Target Framework | Project Type | Packages | Install | Restore | Build | Failed Stage | Error Type |");
+        lines.push("| --- | --- | --- | --- | --- | --- | --- | --- |");
 
         for (const consumer of result.generatedConsumers) {
             lines.push(
@@ -105,7 +106,11 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
                     consumer.installSucceeded,
                 )} | ${icon(consumer.restoreSucceeded)} | ${icon(
                     consumer.buildSucceeded,
-                )} | ${failureStage(consumer.failureStage)} |`,
+                )} | ${failureStage(consumer.failureStage)} | ${
+                    consumer.failureStage === null
+                        ? ""
+                        : generatedConsumerFailureKindLabel(consumer.failureKind)
+                } |`,
             );
         }
     }
@@ -152,6 +157,10 @@ export function createMarkdownSummary(result: PackageSmokeResult): string {
         for (const consumer of failedConsumers) {
             lines.push(`### Generated consumer ${consumer.targetFramework}`, "");
             lines.push(`Failed stage: ${failureStage(consumer.failureStage)}`, "");
+            lines.push(`Error type: ${generatedConsumerFailureKindLabel(consumer.failureKind)}`, "");
+            if (consumer.failureDetail !== null) {
+                lines.push(`Error details: ${consumer.failureDetail}`, "");
+            }
             if (consumer.retainedWorkspace !== null) {
                 lines.push(`Retained workspace: ${consumer.retainedWorkspace}`, "");
             }

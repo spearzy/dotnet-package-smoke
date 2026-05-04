@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
-import { GeneratedConsumerResult } from "./generatedConsumers.js";
+import { generatedConsumerFailureKindLabel } from "./failureClassification.js";
+import type { GeneratedConsumerResult } from "./generatedConsumers.js";
 import { getInputs } from "./inputs.js";
 import { createPackagesJson } from "./outputs.js";
 import { runPackageSmoke } from "./packageSmoke.js";
@@ -32,8 +33,11 @@ function generatedConsumerFailureMessage(consumers: GeneratedConsumerResult[]): 
     if (consumers.length === 1) {
         const consumer = consumers[0];
         const stage = consumer.failureStage ?? "unknown";
+        const errorType = consumer.failureKind !== null && consumer.failureKind !== "error"
+            ? `: ${generatedConsumerFailureKindLabel(consumer.failureKind)}`
+            : "";
 
-        return `Generated consumer check failed for ${consumer.targetFramework}${generatedConsumerPackageLabel(consumer)} during ${stage}.`;
+        return `Generated consumer check failed for ${consumer.targetFramework}${generatedConsumerPackageLabel(consumer)} during ${stage}${errorType}.`;
     }
 
     const failuresByStage = consumers.reduce<Record<string, number>>((counts, consumer) => {

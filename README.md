@@ -137,6 +137,7 @@ When the action runs, it writes a GitHub job summary with:
 
 - packages found after packing
 - generated consumer install, restore, and build status
+- generated consumer error type and useful error details for common failures
 - smoke project restore and test status
 - local feed and artifacts paths
 - retained workspace paths when `retain-on-failure` is enabled and a check fails
@@ -183,8 +184,8 @@ The project focuses on proving that packed NuGet packages can be consumed by cle
 
 ### Near term
 
-- Add `smoke-arguments` for passing restore/test options to smoke projects.
-- Improve generated consumer failure messages for common NuGet restore and compatibility problems.
+- Add `smoke-arguments` for passing restore options to smoke projects.
+- Expand workflow examples for package families and smoke project validation.
 
 ### Later
 

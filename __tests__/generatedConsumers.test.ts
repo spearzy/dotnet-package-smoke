@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runGeneratedConsumers } from "../src/generatedConsumers";
-import { PackageFile } from "../src/packages";
+import type { PackageFile } from "../src/packages";
 
 // These tests should not run the real dotnet CLI. The generated consumer
 // workflow calls dotnet several times, so we keep the real argument builders
@@ -75,6 +75,8 @@ describe("runGeneratedConsumers", () => {
             restoreSucceeded: true,
             buildSucceeded: true,
             failureStage: null,
+            failureKind: null,
+            failureDetail: null,
             failureOutput: "",
         });
     });
@@ -90,7 +92,7 @@ describe("runGeneratedConsumers", () => {
             .mockResolvedValueOnce({
                 exitCode: 1,
                 stdout: "install failed",
-                stderr: "NU1102",
+                stderr: "NU1102: Unable to find package MyLibrary.",
             });
 
         const results = await runGeneratedConsumers(
@@ -109,7 +111,9 @@ describe("runGeneratedConsumers", () => {
             restoreSucceeded: false,
             buildSucceeded: false,
             failureStage: "install",
-            failureOutput: "install failed\nNU1102",
+            failureKind: "package-not-found",
+            failureDetail: "The produced package 'MyLibrary' could not be found in the local feed.",
+            failureOutput: "install failed\nNU1102: Unable to find package MyLibrary.",
         });
         // If this is 3 or more, the code carried on after add package failed.
         expect(mockedRunDotnet).toHaveBeenCalledTimes(2);
@@ -128,7 +132,7 @@ describe("runGeneratedConsumers", () => {
             .mockResolvedValueOnce({
                 exitCode: 1,
                 stdout: "restore failed",
-                stderr: "NU1101",
+                stderr: "NU1101: Unable to find package MyLibrary.Dependency.",
             });
 
         const results = await runGeneratedConsumers(
@@ -147,7 +151,9 @@ describe("runGeneratedConsumers", () => {
             restoreSucceeded: false,
             buildSucceeded: false,
             failureStage: "restore",
-            failureOutput: "restore failed\nNU1101",
+            failureKind: "dependency-not-found",
+            failureDetail: "The package dependency 'MyLibrary.Dependency' could not be found during restore.",
+            failureOutput: "restore failed\nNU1101: Unable to find package MyLibrary.Dependency.",
         });
         // If this is 4, the code tried to build even though restore failed.
         expect(mockedRunDotnet).toHaveBeenCalledTimes(3);
@@ -185,6 +191,8 @@ describe("runGeneratedConsumers", () => {
             restoreSucceeded: true,
             buildSucceeded: false,
             failureStage: "build",
+            failureKind: "build-error",
+            failureDetail: "The generated consumer restored successfully but failed to build.",
             failureOutput: "build failed\nCS0246",
         });
         expect(mockedRunDotnet).toHaveBeenCalledTimes(4);
@@ -196,7 +204,7 @@ describe("runGeneratedConsumers", () => {
             .mockResolvedValueOnce({
                 exitCode: 1,
                 stdout: "install failed",
-                stderr: "NU1102",
+                stderr: "NU1102: Unable to find package MyLibrary.",
             });
 
         const results = await runGeneratedConsumers(
