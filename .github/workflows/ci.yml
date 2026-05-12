@@ -13,6 +13,8 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repository
@@ -40,6 +42,19 @@ jobs:
 
       - name: Bundle action
         run: npm run package
+
+      - name: Commit bundle if changed (Dependabot)
+        if: github.actor == 'dependabot[bot]'
+        run: |
+          if git diff --quiet -- dist; then
+            echo "No changes to dist"
+          else
+            git config user.name "dependabot[bot]"
+            git config user.email "dependabot[bot]@users.noreply.github.com"
+            git add dist/
+            git commit -m "chore: regenerate dist bundle"
+            git push
+          fi
 
       - name: Verify committed bundle is current
         run: git diff --exit-code -- dist
