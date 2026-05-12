@@ -44,7 +44,7 @@ jobs:
         run: npm run package
 
       - name: Commit bundle if changed (Dependabot)
-        if: github.actor == 'dependabot[bot]'
+        if: github.actor == 'dependabot[bot]' && github.event_name == 'push'
         run: |
           if git diff --quiet -- dist; then
             echo "No changes to dist"
