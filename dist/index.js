@@ -27534,11 +27534,37 @@ var XmlNode = class {
   }
 };
 
+// node_modules/xml-naming/src/index.js
+var nameStartChar10 = ":A-Za-z_\xC0-\xD6\xD8-\xF6\xF8-\u02FF\u0370-\u037D\u037F-\u0486\u0488-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
+var nameChar10 = nameStartChar10 + "\\-\\.\\d\xB7\u0300-\u036F\u203F-\u2040";
+var nameStartChar11 = ":A-Za-z_\xC0-\u02FF\u0370-\u037D\u037F-\u0486\u0488-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\u{10000}-\u{EFFFF}";
+var nameChar11 = nameStartChar11 + "\\-\\.\\d\xB7\u0300-\u036F\u0487\u203F-\u2040";
+var buildRegexes = (startChar, char, flags = "") => {
+  const ncStart = startChar.replace(":", "");
+  const ncChar = char.replace(":", "");
+  const ncNamePat = `[${ncStart}][${ncChar}]*`;
+  return {
+    name: new RegExp(`^[${startChar}][${char}]*$`, flags),
+    ncName: new RegExp(`^${ncNamePat}$`, flags),
+    qName: new RegExp(`^${ncNamePat}(?::${ncNamePat})?$`, flags),
+    nmToken: new RegExp(`^[${char}]+$`, flags),
+    nmTokens: new RegExp(`^[${char}]+(?:\\s+[${char}]+)*$`, flags)
+  };
+};
+var regexes10 = buildRegexes(nameStartChar10, nameChar10);
+var regexes11 = buildRegexes(nameStartChar11, nameChar11, "u");
+var getRegexes = (xmlVersion = "1.0") => xmlVersion === "1.1" ? regexes11 : regexes10;
+var qName = (str, { xmlVersion = "1.0" } = {}) => getRegexes(xmlVersion).qName.test(str);
+
 // node_modules/fast-xml-parser/src/xmlparser/DocTypeReader.js
 var DocTypeReader = class {
-  constructor(options) {
+  constructor(options, xmlVersion) {
     this.suppressValidationErr = !options;
     this.options = options;
+    this.xmlVersion = xmlVersion || 1;
+  }
+  setXmlVersion(xmlVersion = 1) {
+    this.xmlVersion = xmlVersion;
   }
   readDocType(xmlData, i) {
     const entities = /* @__PURE__ */ Object.create(null);
@@ -27610,7 +27636,7 @@ var DocTypeReader = class {
       i++;
     }
     let entityName = xmlData.substring(startIndex, i);
-    validateEntityName2(entityName);
+    validateEntityName2(entityName, { xmlVersion: this.xmlVersion });
     i = skipWhitespace(xmlData, i);
     if (!this.suppressValidationErr) {
       if (xmlData.substring(i, i + 6).toUpperCase() === "SYSTEM") {
@@ -27636,7 +27662,7 @@ var DocTypeReader = class {
       i++;
     }
     let notationName = xmlData.substring(startIndex, i);
-    !this.suppressValidationErr && validateEntityName2(notationName);
+    !this.suppressValidationErr && validateEntityName2(notationName, { xmlVersion: this.xmlVersion });
     i = skipWhitespace(xmlData, i);
     const identifierType = xmlData.substring(i, i + 6).toUpperCase();
     if (!this.suppressValidationErr && identifierType !== "SYSTEM" && identifierType !== "PUBLIC") {
@@ -27685,7 +27711,7 @@ var DocTypeReader = class {
       i++;
     }
     let elementName = xmlData.substring(startIndex, i);
-    if (!this.suppressValidationErr && !isName(elementName)) {
+    if (!this.suppressValidationErr && !qName(elementName, { xmlVersion: this.xmlVersion })) {
       throw new Error(`Invalid element name: "${elementName}"`);
     }
     i = skipWhitespace(xmlData, i);
@@ -27718,14 +27744,14 @@ var DocTypeReader = class {
       i++;
     }
     let elementName = xmlData.substring(startIndex, i);
-    validateEntityName2(elementName);
+    validateEntityName2(elementName, { xmlVersion: this.xmlVersion });
     i = skipWhitespace(xmlData, i);
     startIndex = i;
     while (i < xmlData.length && !/\s/.test(xmlData[i])) {
       i++;
     }
     let attributeName = xmlData.substring(startIndex, i);
-    if (!validateEntityName2(attributeName)) {
+    if (!validateEntityName2(attributeName, { xmlVersion: this.xmlVersion })) {
       throw new Error(`Invalid attribute name: "${attributeName}"`);
     }
     i = skipWhitespace(xmlData, i);
@@ -27746,7 +27772,7 @@ var DocTypeReader = class {
         }
         let notation = xmlData.substring(startIndex2, i);
         notation = notation.trim();
-        if (!validateEntityName2(notation)) {
+        if (!validateEntityName2(notation, { xmlVersion: this.xmlVersion })) {
           throw new Error(`Invalid notation name: "${notation}"`);
         }
         allowedNotations.push(notation);
@@ -27803,8 +27829,8 @@ function hasSeq(data, seq, i) {
   }
   return true;
 }
-function validateEntityName2(name) {
-  if (isName(name))
+function validateEntityName2(name, xmlVersion) {
+  if (qName(name, { xmlVersion }))
     return name;
   else
     throw new Error(`Invalid entity name ${name}`);
@@ -27812,10 +27838,13 @@ function validateEntityName2(name) {
 
 // node_modules/strnum/strnum.js
 var hexRegex = /^[-+]?0x[a-fA-F0-9]+$/;
+var binRegex = /^0b[01]+$/;
+var octRegex = /^0o[0-7]+$/;
 var numRegex = /^([\-\+])?(0*)([0-9]*(\.[0-9]*)?)$/;
 var consider = {
   hex: true,
-  // oct: false,
+  binary: false,
+  octal: false,
   leadingZeros: true,
   decimalPoint: ".",
   eNotation: true,
@@ -27832,6 +27861,10 @@ function toNumber(str, options = {}) {
   else if (trimmedStr === "0") return 0;
   else if (options.hex && hexRegex.test(trimmedStr)) {
     return parse_int(trimmedStr, 16);
+  } else if (options.binary && binRegex.test(trimmedStr)) {
+    return parse_int(trimmedStr, 2);
+  } else if (options.octal && octRegex.test(trimmedStr)) {
+    return parse_int(trimmedStr, 8);
   } else if (!isFinite(trimmedStr)) {
     return handleInfinity(str, Number(trimmedStr), options);
   } else if (trimmedStr.includes("e") || trimmedStr.includes("E")) {
@@ -27911,6 +27944,8 @@ function trimZeros(numStr) {
   return numStr;
 }
 function parse_int(numStr, base) {
+  const str = numStr.trim();
+  if (base === 2 || base === 8) numStr = str.substring(2);
   if (parseInt) return parseInt(numStr, base);
   else if (Number.parseInt) return Number.parseInt(numStr, base);
   else if (window && window.parseInt) return window.parseInt(numStr, base);
@@ -28951,6 +28986,7 @@ var parseXml = function(xmlData) {
         if (attsMap) {
           const ver = attsMap[this.options.attributeNamePrefix + "version"];
           this.entityDecoder.setXmlVersion(Number(ver) || 1);
+          docTypeReader.setXmlVersion(Number(ver) || 1);
         }
         if (options.ignoreDeclaration && tagData.tagName === "?xml" || options.ignorePiTags) {
         } else {
@@ -29254,7 +29290,7 @@ function readStopNodeData(xmlData, tagName, i) {
         const closeIndex = findClosingIndex(xmlData, "]]>", i, "StopNode is not closed.") - 2;
         i = closeIndex;
       } else {
-        const tagData = readTagExp(xmlData, i, ">");
+        const tagData = readTagExp(xmlData, i, false);
         if (tagData) {
           const openTagName = tagData && tagData.tagName;
           if (openTagName === tagName && tagData.tagExp[tagData.tagExp.length - 1] !== "/") {
@@ -29340,6 +29376,9 @@ function compress(arr, options, matcher, readonlyMatcher) {
     } else if (tagObj[property]) {
       let val = compress(tagObj[property], options, matcher, readonlyMatcher);
       const isLeaf = isLeafTag(val, options);
+      if (Object.keys(val).length === 0 && options.alwaysCreateTextNode) {
+        val[options.textNodeName] = "";
+      }
       if (tagObj[":@"]) {
         assignAttributes(val, tagObj[":@"], readonlyMatcher, options);
       } else if (Object.keys(val).length === 1 && val[options.textNodeName] !== void 0 && !options.alwaysCreateTextNode) {
